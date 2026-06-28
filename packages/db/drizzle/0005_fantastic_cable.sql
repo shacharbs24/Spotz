@@ -1,0 +1,1 @@
+ALTER TABLE "businesses" ADD COLUMN "image_url" text;

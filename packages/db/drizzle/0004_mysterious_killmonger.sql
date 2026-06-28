@@ -1,0 +1,1 @@
+ALTER TABLE "services" ALTER COLUMN "duration_minutes" SET DEFAULT 30;

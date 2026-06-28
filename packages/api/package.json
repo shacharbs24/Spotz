@@ -1,0 +1,31 @@
+{
+  "name": "@spotz/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas/business": "./src/schemas/business.ts",
+    "./schemas/service": "./src/schemas/service.ts",
+    "./schemas/availability": "./src/schemas/availability.ts",
+    "./schemas/booking": "./src/schemas/booking.ts",
+    "./schemas/appointment": "./src/schemas/appointment.ts",
+    "./schemas/block": "./src/schemas/block.ts",
+    "./schemas/review": "./src/schemas/review.ts",
+    "./schemas/profile": "./src/schemas/profile.ts",
+    "./reminders": "./src/services/reminders.ts"
+  },
+  "dependencies": {
+    "@spotz/db": "workspace:*",
+    "@trpc/server": "^11.7.1",
+    "drizzle-orm": "^0.44.7",
+    "luxon": "^3.5.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.4.2",
+    "@types/node": "^20"
+  }
+}

@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Light-luxury, warm editorial palette. Tailwind v4 generates utilities
+   (bg-surface, text-ink, border-line, shadow-soft, …) from these tokens. */
+@theme {
+  --color-surface: oklch(97.5% 0.012 80);
+  --color-surface-raised: oklch(99.4% 0.006 80);
+  --color-ink: oklch(24% 0.03 300);
+  --color-ink-muted: oklch(48% 0.02 300);
+  --color-line: oklch(89% 0.012 80);
+
+  --color-owner: oklch(52% 0.16 350); /* deep plum */
+  --color-owner-soft: oklch(95% 0.03 350);
+  --color-client: oklch(58% 0.13 45); /* warm terracotta */
+  --color-client-soft: oklch(95% 0.035 45);
+
+  /* Semantic status colors */
+  --color-success: oklch(58% 0.13 150); /* green — confirmed */
+  --color-success-soft: oklch(95% 0.04 150);
+  --color-danger: oklch(57% 0.19 25); /* red — cancelled */
+  --color-danger-soft: oklch(95% 0.045 25);
+  --color-pending: oklch(67% 0.13 70); /* amber — pending */
+  --color-pending-soft: oklch(95% 0.05 75);
+
+  --shadow-soft: 0 1px 2px oklch(24% 0.03 300 / 0.04),
+    0 12px 32px oklch(24% 0.03 300 / 0.08);
+
+  --font-sans: var(--font-heebo);
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-heebo), system-ui, sans-serif;
+}
