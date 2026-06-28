@@ -1,5 +1,5 @@
 {
-  "name": "_init",
+  "name": "spotz",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -9,12 +9,16 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@spotz/db": "workspace:*",
+    "dotenv": "^17.2.4",
     "prettier": "^3.7.4",
+    "svix": "^1.45.1",
+    "tsx": "^4.20.6",
     "turbo": "^2.9.18",
     "typescript": "5.9.2"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

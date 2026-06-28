@@ -36,3 +36,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Stray local secret notes (should be deleted — see setup notes)
+clark-passwords.txt
+database-url.txt
