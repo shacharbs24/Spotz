@@ -1,8 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
-import { SignInButton, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
 import { RoleSelect } from "@/components/landing/RoleSelect";
+import { HeaderLoginButton } from "@/components/landing/HeaderLoginButton";
 import { ClientPortal } from "@/components/portal/ClientPortal";
 import { getServerCaller } from "@/trpc/server";
 
@@ -31,7 +32,7 @@ export default async function Home() {
         className="pointer-events-none absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-client-soft blur-3xl"
       />
 
-      <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
+      <header className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
         <span className="text-lg font-bold tracking-tight text-ink">
           Spotz<span className="text-owner">.</span>
         </span>
@@ -48,19 +49,12 @@ export default async function Home() {
             <UserButton />
           </div>
         ) : (
-          <SignInButton mode="modal">
-            <button
-              type="button"
-              className="cursor-pointer text-sm font-medium text-ink-muted transition-colors hover:text-ink"
-            >
-              כבר יש לי חשבון
-            </button>
-          </SignInButton>
+          <HeaderLoginButton />
         )}
       </header>
 
       <section
-        className={`relative z-10 mx-auto flex w-full flex-1 flex-col px-6 py-12 ${
+        className={`pointer-events-auto relative z-10 mx-auto flex w-full flex-1 flex-col px-6 py-12 ${
           isClient
             ? "max-w-2xl"
             : "max-w-2xl items-center justify-center gap-10 text-center"
@@ -108,7 +102,10 @@ export default async function Home() {
         {userId && isClient && <ClientPortal name={fullName} />}
       </section>
 
-      <footer className="relative z-10 mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-ink-muted">
+      <footer
+        className="relative z-10 mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-ink-muted"
+        suppressHydrationWarning
+      >
         © {new Date().getFullYear()} Spotz · מערכת לתיאום תורים
       </footer>
     </main>

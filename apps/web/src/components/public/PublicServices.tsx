@@ -62,7 +62,7 @@ export function PublicServices({
               </span>
             </div>
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center sm:justify-end">
               <BookingCta
                 authState={authState}
                 returnUrl={returnUrl}
@@ -87,7 +87,7 @@ export function PublicServices({
 }
 
 const ctaClass =
-  "cursor-pointer rounded-full bg-owner px-5 py-1.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03]";
+  "inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full bg-owner px-5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] sm:min-h-9 sm:w-auto";
 
 function BookingCta({
   authState,

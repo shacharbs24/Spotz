@@ -38,7 +38,7 @@ export function PublicReviewButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="cursor-pointer rounded-full border border-line px-4 py-1.5 text-sm font-medium text-ink-muted transition-colors hover:border-owner/40 hover:text-ink"
+        className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-line px-5 text-sm font-medium text-ink-muted transition-colors hover:border-owner/40 hover:text-ink sm:min-h-9 sm:px-4"
       >
         הוסף חוות דעת
       </button>
@@ -105,7 +105,7 @@ function ReviewFields({
                 }
                 onMouseEnter={() => setHovered(star)}
                 onMouseLeave={() => setHovered(0)}
-                className="cursor-pointer p-0.5"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center"
               >
                 <svg
                   width={30}
@@ -137,7 +137,7 @@ function ReviewFields({
           id="reviewerName"
           type="text"
           placeholder="השם שיוצג"
-          className={`w-full rounded-xl border bg-surface-raised px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted/60 focus:border-owner ${
+          className={`w-full rounded-xl border bg-surface-raised px-3 py-2.5 text-base text-ink outline-none transition-colors placeholder:text-ink-muted/60 focus:border-owner sm:text-sm ${
             errors.reviewerName ? "border-danger" : "border-line"
           }`}
           {...register("reviewerName")}
@@ -155,7 +155,7 @@ function ReviewFields({
           id="comment"
           rows={4}
           placeholder="ספרו על החוויה שלכם…"
-          className={`w-full resize-none rounded-xl border bg-surface-raised px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted/60 focus:border-owner ${
+          className={`w-full resize-none rounded-xl border bg-surface-raised px-3 py-2.5 text-base text-ink outline-none transition-colors placeholder:text-ink-muted/60 focus:border-owner sm:text-sm ${
             errors.comment ? "border-danger" : "border-line"
           }`}
           {...register("comment")}
@@ -174,11 +174,11 @@ function ReviewFields({
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-1">
+      <div className="flex items-center sm:justify-end gap-3 pt-1">
         <button
           type="submit"
           disabled={create.isPending}
-          className="inline-flex items-center gap-2 rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-owner px-6 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {create.isPending ? "שולח…" : "שליחת חוות דעת"}
         </button>

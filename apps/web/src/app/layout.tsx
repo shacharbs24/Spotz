@@ -27,6 +27,7 @@ export default function RootLayout({
         lang="he"
         dir="rtl"
         className={`${heebo.variable} h-full antialiased`}
+        suppressHydrationWarning
       >
         <body className="min-h-full flex flex-col font-sans">
           <TRPCProvider>{children}</TRPCProvider>

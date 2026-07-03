@@ -33,3 +33,17 @@ body {
   color: var(--color-ink);
   font-family: var(--font-heebo), system-ui, sans-serif;
 }
+
+/* Kill the double-tap-to-zoom gesture on interactive controls so a single tap
+   fires the click immediately on touch devices (no 300ms delay, no accidental
+   zoom). Pinch-to-zoom stays available for accessibility. */
+button,
+[role="button"],
+a,
+label,
+summary,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}

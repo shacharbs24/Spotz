@@ -125,22 +125,22 @@ export function BookingModal({
           <button
             type="button"
             onClick={onClose}
-            className="mt-2 cursor-pointer rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03]"
+            className="mt-2 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-owner px-6 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03]"
           >
             סגירה
           </button>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between rounded-xl bg-surface px-4 py-3">
-            <span className="font-medium text-ink">{service.name}</span>
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
+            <span className="min-w-0 break-words font-medium text-ink">{service.name}</span>
             <span className="text-sm font-semibold text-owner">
               {formatPrice(service.priceCents, service.currency)}
             </span>
           </div>
 
           <Step n={1} label="בחרו תאריך">
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex snap-x gap-2 overflow-x-auto pb-1">
               {days.map((day) => (
                 <button
                   key={day.value}
@@ -162,7 +162,7 @@ export function BookingModal({
                   {[0, 1, 2, 3, 4, 5].map((i) => (
                     <div
                       key={i}
-                      className="h-9 animate-pulse rounded-xl bg-line"
+                      className="h-11 animate-pulse rounded-xl bg-line sm:h-9"
                     />
                   ))}
                 </div>
@@ -204,7 +204,7 @@ export function BookingModal({
                   type="button"
                   onClick={handleConfirm}
                   disabled={createAppointment.isPending}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-owner px-6 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {createAppointment.isPending ? "קובע תור…" : "אישור וקביעת תור"}
                 </button>
@@ -240,7 +240,7 @@ function Step({
 }
 
 function dayButtonClass(selected: boolean): string {
-  return `flex w-16 shrink-0 cursor-pointer flex-col items-center gap-0.5 rounded-xl border px-2 py-2 transition-colors ${
+  return `flex w-16 shrink-0 snap-start cursor-pointer flex-col items-center gap-0.5 rounded-xl border px-2 py-2.5 transition-colors ${
     selected
       ? "border-owner bg-owner-soft text-owner"
       : "border-line text-ink-muted hover:border-owner/40"
@@ -248,7 +248,7 @@ function dayButtonClass(selected: boolean): string {
 }
 
 function slotButtonClass(selected: boolean): string {
-  return `rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+  return `min-h-11 rounded-xl border px-3 py-2 text-sm font-medium transition-colors sm:min-h-9 ${
     selected
       ? "border-owner bg-owner text-white"
       : "border-line text-ink hover:border-owner/50"

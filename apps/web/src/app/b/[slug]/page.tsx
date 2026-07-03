@@ -51,25 +51,25 @@ export default async function PublicBusinessPage({
 
       {/* 1. Business image — prominent cover at the very top */}
       {business.imageUrl ? (
-        <div className="relative z-10 mx-auto w-full max-w-3xl px-6 pt-8">
+        <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={business.imageUrl}
             alt={business.name}
-            className="h-52 w-full rounded-2xl border border-line object-cover shadow-soft sm:h-72"
+            className="h-48 w-full rounded-2xl border border-line object-cover shadow-soft sm:h-72"
           />
         </div>
       ) : null}
 
       {/* Title + 2. description immediately below */}
-      <header className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-6 pt-8 pb-8 text-center">
+      <header className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-4 pt-6 pb-8 text-center sm:px-6 sm:pt-8">
         {!business.imageUrl && (
           <p className="mb-4 text-sm font-medium tracking-wide text-owner">
             קביעת תור אונליין
           </p>
         )}
 
-        <h1 className="text-balance text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+        <h1 className="text-balance text-3xl font-bold tracking-tight text-ink sm:text-5xl">
           {business.name}
         </h1>
 
@@ -90,7 +90,7 @@ export default async function PublicBusinessPage({
             <a
               href={`tel:${business.phone}`}
               dir="ltr"
-              className="inline-flex items-center gap-1.5 transition-colors hover:text-ink"
+              className="inline-flex min-h-8 items-center gap-1.5 transition-colors hover:text-ink"
             >
               <PhoneIcon />
               {business.phone}
@@ -115,7 +115,7 @@ export default async function PublicBusinessPage({
       </header>
 
       {/* Services */}
-      <section className="relative z-10 mx-auto w-full max-w-3xl flex-1 px-6 pb-20">
+      <section className="relative z-10 mx-auto w-full max-w-3xl flex-1 px-4 pb-16 sm:px-6 sm:pb-20">
         <h2 className="mb-5 text-lg font-semibold tracking-tight text-ink">
           השירותים שלנו
         </h2>
@@ -131,7 +131,7 @@ export default async function PublicBusinessPage({
 
       <BusinessReviews reviews={reviews} />
 
-      <footer className="relative z-10 mx-auto w-full max-w-3xl px-6 py-6 text-center text-xs text-ink-muted">
+      <footer className="relative z-10 mx-auto w-full max-w-3xl px-4 py-6 text-center text-xs text-ink-muted sm:px-6">
         מופעל על־ידי Spotz
       </footer>
     </main>
