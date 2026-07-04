@@ -1,10 +1,12 @@
-import { eq, and, asc, gte, lt } from "drizzle-orm";
+import { eq, and, or, asc, desc, gte, lt, ilike, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, protectedProcedure } from "../trpc";
 import { updateAppointmentStatusSchema } from "../schemas/appointment";
+
+const HISTORY_PAGE_SIZE = 15;
 
 /** Resolves the authenticated owner's business, enforcing the OWNER role. */
 async function requireOwnerBusiness(clerkUserId: string) {
@@ -123,6 +125,90 @@ export const appointmentsRouter = router({
       };
     });
   }),
+
+  /**
+   * Appointment history for the owner's business: appointments that are already
+   * in the past (end time elapsed) or in a terminal status (COMPLETED/CANCELLED),
+   * newest first, paginated via an offset cursor. An optional `searchQuery`
+   * filters by client name (case-insensitive substring).
+   */
+  getAppointmentHistory: protectedProcedure
+    .input(
+      z.object({
+        searchQuery: z.string().trim().max(100).optional(),
+        cursor: z.number().int().min(0).nullish(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const business = await requireOwnerBusiness(ctx.clerkUserId);
+      const offset = input.cursor ?? 0;
+      const search = input.searchQuery?.trim();
+
+      const conditions = [
+        eq(tables.appointments.businessId, business.id),
+        // Past (elapsed) OR terminal status.
+        or(
+          lt(tables.appointments.endAt, new Date()),
+          inArray(tables.appointments.status, ["COMPLETED", "CANCELLED"]),
+        ),
+      ];
+      if (search) {
+        conditions.push(ilike(tables.clients.fullName, `%${search}%`));
+      }
+
+      const rows = await db
+        .select({
+          id: tables.appointments.id,
+          startAt: tables.appointments.startAt,
+          endAt: tables.appointments.endAt,
+          status: tables.appointments.status,
+          priceCentsSnapshot: tables.appointments.priceCentsSnapshot,
+          clientName: tables.clients.fullName,
+          clientPhone: tables.clients.phone,
+          serviceName: tables.services.name,
+        })
+        .from(tables.appointments)
+        .innerJoin(
+          tables.clients,
+          eq(tables.appointments.clientId, tables.clients.id),
+        )
+        .innerJoin(
+          tables.services,
+          eq(tables.appointments.serviceId, tables.services.id),
+        )
+        .where(and(...conditions))
+        .orderBy(desc(tables.appointments.startAt))
+        .limit(HISTORY_PAGE_SIZE + 1)
+        .offset(offset);
+
+      const hasMore = rows.length > HISTORY_PAGE_SIZE;
+      const page = hasMore ? rows.slice(0, HISTORY_PAGE_SIZE) : rows;
+
+      return {
+        items: page.map((row) => {
+          const start = DateTime.fromJSDate(row.startAt)
+            .setZone(business.timezone)
+            .setLocale("he");
+          const end = DateTime.fromJSDate(row.endAt).setZone(business.timezone);
+          return {
+            id: row.id,
+            status: row.status,
+            priceCentsSnapshot: row.priceCentsSnapshot,
+            clientName: row.clientName,
+            clientPhone: row.clientPhone,
+            serviceName: row.serviceName,
+            date: start.toLocaleString({
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            }),
+            startTime: start.toFormat("HH:mm"),
+            endTime: end.toFormat("HH:mm"),
+          };
+        }),
+        nextCursor: hasMore ? offset + HISTORY_PAGE_SIZE : null,
+      };
+    }),
 
   /** Changes an appointment's status (owner of the appointment's business only). */
   updateAppointmentStatus: protectedProcedure

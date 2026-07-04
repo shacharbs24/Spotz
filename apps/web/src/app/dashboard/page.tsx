@@ -14,6 +14,7 @@ const DASHBOARD_CARDS: readonly {
   { label: "שירותים", hint: "ניהול השירותים", href: "/dashboard/services" },
   { label: "שעות פעילות", hint: "הגדרת שעות הפעילות", href: "/dashboard/availability" },
   { label: "תורים", hint: "צפייה בכל התורים", href: "/dashboard/appointments" },
+  { label: "היסטוריית תורים", hint: "תורים שעברו וחיפוש לקוח", href: "/dashboard/history" },
   { label: "חסימות ביומן", hint: "חופשות וחסימות", href: "/dashboard/blocked" },
 ];
 

@@ -15,6 +15,9 @@ export type PublicService = PublicBusinessData["services"][number];
 export type AppointmentRow =
   RouterOutputs["appointments"]["getDashboardAppointments"][number];
 
+export type AppointmentHistoryRow =
+  RouterOutputs["appointments"]["getAppointmentHistory"]["items"][number];
+
 export type BlockedPeriodRow =
   RouterOutputs["blocks"]["getBlockedPeriods"][number];
 
