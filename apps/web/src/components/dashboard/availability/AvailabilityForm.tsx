@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useForm, useFieldArray } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  type Control,
+  type UseFormRegister,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { timeRegex } from "@spotz/api/schemas/availability";
@@ -17,6 +22,11 @@ const DAY_NAMES = [
   "שבת",
 ] as const;
 
+const breakFormSchema = z.object({
+  start: z.string().regex(timeRegex, "שעה לא תקינה"),
+  end: z.string().regex(timeRegex, "שעה לא תקינה"),
+});
+
 /** Form values use `isOpen` (friendlier); converted to `isClosed` on submit. */
 const dayFormSchema = z
   .object({
@@ -24,6 +34,7 @@ const dayFormSchema = z
     isOpen: z.boolean(),
     startTime: z.string().regex(timeRegex, "שעה לא תקינה"),
     endTime: z.string().regex(timeRegex, "שעה לא תקינה"),
+    breaks: z.array(breakFormSchema),
   })
   .refine((day) => !day.isOpen || day.startTime < day.endTime, {
     message: "שעת הסיום חייבת להיות אחרי שעת ההתחלה",
@@ -37,6 +48,7 @@ const FALLBACK_DAYS = Array.from({ length: 7 }, (_unused, i) => ({
   isOpen: i < 5,
   startTime: "09:00",
   endTime: "18:00",
+  breaks: [] as { start: string; end: string }[],
 }));
 
 export function AvailabilityForm() {
@@ -65,6 +77,7 @@ export function AvailabilityForm() {
             isOpen: !day.isClosed,
             startTime: day.startTime,
             endTime: day.endTime,
+            breaks: day.breaks,
           })),
         }
       : undefined,
@@ -88,6 +101,7 @@ export function AvailabilityForm() {
         startTime: day.startTime,
         endTime: day.endTime,
         isClosed: !day.isOpen,
+        breaks: day.breaks,
       })),
     });
   };
@@ -98,58 +112,17 @@ export function AvailabilityForm() {
       className="flex flex-col gap-6 rounded-2xl border border-line bg-surface-raised p-2 shadow-soft sm:p-4"
     >
       <ul className="flex flex-col divide-y divide-line">
-        {fields.map((field, index) => {
-          const isOpen = watchedDays?.[index]?.isOpen ?? true;
-          const endError = errors.days?.[index]?.endTime?.message;
-
-          return (
-            <li
-              key={field.id}
-              className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-center sm:gap-6"
-            >
-              <input
-                type="hidden"
-                {...register(`days.${index}.dayOfWeek`, { valueAsNumber: true })}
-              />
-
-              <label className="flex cursor-pointer items-center gap-3 sm:w-40">
-                <input
-                  type="checkbox"
-                  {...register(`days.${index}.isOpen`)}
-                  className="h-5 w-5 cursor-pointer accent-[var(--color-owner)]"
-                />
-                <span className="font-medium text-ink">
-                  {DAY_NAMES[field.dayOfWeek]}
-                </span>
-              </label>
-
-              {isOpen ? (
-                <div className="flex flex-wrap items-center gap-2 sm:mr-auto">
-                  <input
-                    type="time"
-                    dir="ltr"
-                    {...register(`days.${index}.startTime`)}
-                    className={timeInputClass}
-                  />
-                  <span className="text-sm text-ink-muted">עד</span>
-                  <input
-                    type="time"
-                    dir="ltr"
-                    {...register(`days.${index}.endTime`)}
-                    className={timeInputClass}
-                  />
-                  {endError && (
-                    <span className="w-full text-xs text-client sm:w-auto">
-                      {endError}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-sm text-ink-muted sm:mr-auto">סגור</span>
-              )}
-            </li>
-          );
-        })}
+        {fields.map((field, index) => (
+          <DayRow
+            key={field.id}
+            control={control}
+            register={register}
+            index={index}
+            dayOfWeek={field.dayOfWeek}
+            isOpen={watchedDays?.[index]?.isOpen ?? true}
+            endError={errors.days?.[index]?.endTime?.message}
+          />
+        ))}
       </ul>
 
       <div className="flex flex-col gap-3 px-3 pb-2">
@@ -180,6 +153,117 @@ export function AvailabilityForm() {
         </div>
       </div>
     </form>
+  );
+}
+
+interface DayRowProps {
+  control: Control<AvailabilityFormValues>;
+  register: UseFormRegister<AvailabilityFormValues>;
+  index: number;
+  dayOfWeek: number;
+  isOpen: boolean;
+  endError?: string;
+}
+
+function DayRow({
+  control,
+  register,
+  index,
+  dayOfWeek,
+  isOpen,
+  endError,
+}: DayRowProps) {
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `days.${index}.breaks`,
+  });
+
+  return (
+    <li className="flex flex-col gap-3 px-3 py-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+        <input
+          type="hidden"
+          {...register(`days.${index}.dayOfWeek`, { valueAsNumber: true })}
+        />
+
+        <label className="flex cursor-pointer items-center gap-3 sm:w-40">
+          <input
+            type="checkbox"
+            {...register(`days.${index}.isOpen`)}
+            className="h-5 w-5 cursor-pointer accent-[var(--color-owner)]"
+          />
+          <span className="font-medium text-ink">{DAY_NAMES[dayOfWeek]}</span>
+        </label>
+
+        {isOpen ? (
+          <div className="flex flex-wrap items-center gap-2 sm:mr-auto">
+            <input
+              type="time"
+              dir="ltr"
+              {...register(`days.${index}.startTime`)}
+              className={timeInputClass}
+            />
+            <span className="text-sm text-ink-muted">עד</span>
+            <input
+              type="time"
+              dir="ltr"
+              {...register(`days.${index}.endTime`)}
+              className={timeInputClass}
+            />
+            {endError && (
+              <span className="w-full text-xs text-client sm:w-auto">
+                {endError}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-sm text-ink-muted sm:mr-auto">סגור</span>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="flex flex-col gap-2 sm:pr-40">
+          {fields.map((breakField, breakIndex) => (
+            <div
+              key={breakField.id}
+              className="flex flex-wrap items-center gap-2"
+            >
+              <span className="w-14 text-xs font-medium text-ink-muted">
+                הפסקה
+              </span>
+              <input
+                type="time"
+                dir="ltr"
+                {...register(`days.${index}.breaks.${breakIndex}.start`)}
+                className={timeInputClass}
+              />
+              <span className="text-sm text-ink-muted">עד</span>
+              <input
+                type="time"
+                dir="ltr"
+                {...register(`days.${index}.breaks.${breakIndex}.end`)}
+                className={timeInputClass}
+              />
+              <button
+                type="button"
+                onClick={() => remove(breakIndex)}
+                aria-label="הסרת הפסקה"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-client-soft hover:text-client"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => append({ start: "13:00", end: "14:00" })}
+            className="inline-flex items-center gap-1 self-start rounded-full border border-line px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-owner/40 hover:text-ink"
+          >
+            <span aria-hidden="true">+</span> הוסף הפסקה
+          </button>
+        </div>
+      )}
+    </li>
   );
 }
 

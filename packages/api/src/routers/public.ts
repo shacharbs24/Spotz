@@ -119,7 +119,13 @@ async function computeAvailableSlots(
       ),
     );
 
-  // Busy intervals = active appointments + blocked periods.
+  // Configured intra-day breaks for this weekday (e.g. a lunch pause).
+  const breakIntervals = (hours.breaks ?? []).map((brk) => ({
+    start: dayStart.plus({ minutes: timeToMinutes(brk.start) }),
+    end: dayStart.plus({ minutes: timeToMinutes(brk.end) }),
+  }));
+
+  // Busy intervals = active appointments + blocked periods + breaks.
   const busy = [
     ...existing
       .filter((appt) => appt.status !== "CANCELLED")
@@ -131,6 +137,7 @@ async function computeAvailableSlots(
       start: DateTime.fromJSDate(block.startAt),
       end: DateTime.fromJSDate(block.endAt),
     })),
+    ...breakIntervals,
   ];
 
   const now = DateTime.now().setZone(timezone);

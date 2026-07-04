@@ -17,6 +17,7 @@ function buildDefaultWeek(): AvailabilityDay[] {
     startTime: DEFAULT_START,
     endTime: DEFAULT_END,
     isClosed: dayOfWeek === 5 || dayOfWeek === 6,
+    breaks: [],
   }));
 }
 
@@ -57,6 +58,7 @@ export const availabilityRouter = router({
         startTime: row.startTime.slice(0, 5), // "09:00:00" → "09:00"
         endTime: row.endTime.slice(0, 5),
         isClosed: row.isClosed,
+        breaks: row.breaks ?? [],
       };
     }
     return week;
@@ -106,6 +108,7 @@ export const availabilityRouter = router({
             startTime: day.startTime,
             endTime: day.endTime,
             isClosed: day.isClosed,
+            breaks: day.breaks,
           })),
         );
       });

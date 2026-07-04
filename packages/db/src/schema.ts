@@ -7,6 +7,7 @@ import {
   time,
   date,
   boolean,
+  jsonb,
   pgEnum,
   smallint,
   index,
@@ -106,6 +107,12 @@ export const workingHours = pgTable(
     startTime: time("start_time").notNull(),
     endTime: time("end_time").notNull(),
     isClosed: boolean("is_closed").notNull().default(false),
+    // Intra-day breaks ("HH:MM"), e.g. a lunch pause — clients can't book during
+    // these. Stored as JSON so each day keeps its own list.
+    breaks: jsonb("breaks")
+      .$type<{ start: string; end: string }[]>()
+      .notNull()
+      .default([]),
   },
   (t) => ({
     uniqDay: uniqueIndex("uq_business_day").on(t.businessId, t.dayOfWeek),
