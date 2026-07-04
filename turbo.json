@@ -5,7 +5,19 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"],
+      "env": [
+        "DATABASE_URL",
+        "CLERK_SECRET_KEY",
+        "WHATSAPP_ACCESS_TOKEN",
+        "WHATSAPP_PHONE_NUMBER_ID",
+        "WHATSAPP_API_VERSION",
+        "WHATSAPP_TEMPLATE_REMINDER_24H",
+        "CLERK_WEBHOOK_SECRET",
+        "CRON_SECRET",
+        "APP_BASE_URL",
+        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
