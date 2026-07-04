@@ -18,6 +18,7 @@ This Turborepo includes the following packages/apps:
 
 ### Apps and Packages
 
+
 - `docs`: a [Next.js](https://nextjs.org/) app
 - `web`: another [Next.js](https://nextjs.org/) app
 - `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
