@@ -58,6 +58,7 @@ export default async function ConfirmAppointmentPage({
           <ConfirmActions
             appointmentId={details.id}
             initialStatus={details.status}
+            initialArrivalConfirmed={details.arrivalConfirmed}
           />
         </div>
       </div>

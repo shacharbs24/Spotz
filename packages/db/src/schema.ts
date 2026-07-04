@@ -149,6 +149,9 @@ export const appointments = pgTable(
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     status: appointmentStatus("status").notNull().default("PENDING"),
+    // When the client confirmed arrival via the WhatsApp reminder link. Tracked
+    // separately from `status` so it stays distinct from owner/auto approval.
+    arrivalConfirmedAt: timestamp("arrival_confirmed_at", { withTimezone: true }),
     priceCentsSnapshot: integer("price_cents_snapshot").notNull(), // נעילת מחיר בזמן ההזמנה
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

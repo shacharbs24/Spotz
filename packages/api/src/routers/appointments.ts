@@ -74,6 +74,7 @@ export const appointmentsRouter = router({
           startAt: tables.appointments.startAt,
           endAt: tables.appointments.endAt,
           status: tables.appointments.status,
+          arrivalConfirmedAt: tables.appointments.arrivalConfirmedAt,
           priceCentsSnapshot: tables.appointments.priceCentsSnapshot,
           clientName: tables.clients.fullName,
           clientPhone: tables.clients.phone,
@@ -122,6 +123,8 @@ export const appointmentsRouter = router({
         // Elapsed once the appointment's end time has passed — used to keep past
         // items out of the dashboard's "today" widget.
         isPast: end.toMillis() < now,
+        // Client tapped "אני מגיע" on the WhatsApp reminder link.
+        arrivalConfirmed: row.arrivalConfirmedAt !== null,
       };
     });
   }),

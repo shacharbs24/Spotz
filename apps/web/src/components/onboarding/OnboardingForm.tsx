@@ -54,8 +54,10 @@ export function OnboardingForm({
           className={inputClass(Boolean(errors.fullName))}
           {...register("fullName")}
         />
-        {errors.fullName && (
+        {errors.fullName ? (
           <p className="text-xs text-danger">{errors.fullName.message}</p>
+        ) : (
+          <p className="text-xs text-ink-muted">מומלץ להזין את השם בעברית</p>
         )}
       </div>
 

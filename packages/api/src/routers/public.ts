@@ -383,6 +383,7 @@ export const publicRouter = router({
           startAt: tables.appointments.startAt,
           endAt: tables.appointments.endAt,
           status: tables.appointments.status,
+          arrivalConfirmedAt: tables.appointments.arrivalConfirmedAt,
           priceCentsSnapshot: tables.appointments.priceCentsSnapshot,
           clientName: tables.clients.fullName,
           serviceName: tables.services.name,
@@ -414,6 +415,7 @@ export const publicRouter = router({
       return {
         id: row.id,
         status: row.status,
+        arrivalConfirmed: row.arrivalConfirmedAt !== null,
         clientName: row.clientName,
         serviceName: row.serviceName,
         businessName: row.businessName,
@@ -451,21 +453,38 @@ export const publicRouter = router({
       if (!appointment) {
         throw new TRPCError({ code: "NOT_FOUND", message: "התור לא נמצא." });
       }
-      if (appointment.status !== "PENDING") {
+      // Terminal states can't be acted on. Both PENDING and CONFIRMED are
+      // actionable so clients can confirm arrival even for auto-approved
+      // services (which are born CONFIRMED).
+      if (
+        appointment.status === "CANCELLED" ||
+        appointment.status === "COMPLETED"
+      ) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "התור כבר טופל ולא ניתן לעדכן אותו.",
         });
       }
 
+      // "אני מגיע" records the arrival confirmation timestamp while keeping the
+      // appointment CONFIRMED; "ביטול תור" cancels it.
       const [updated] = await db
         .update(tables.appointments)
-        .set({ status: input.status })
+        .set(
+          input.status === "CONFIRMED"
+            ? { status: "CONFIRMED", arrivalConfirmedAt: new Date() }
+            : { status: "CANCELLED" },
+        )
         .where(eq(tables.appointments.id, input.appointmentId))
         .returning({
           id: tables.appointments.id,
           status: tables.appointments.status,
+          arrivalConfirmedAt: tables.appointments.arrivalConfirmedAt,
         });
-      return updated;
+      return {
+        id: updated.id,
+        status: updated.status,
+        arrivalConfirmed: updated.arrivalConfirmedAt !== null,
+      };
     }),
 });

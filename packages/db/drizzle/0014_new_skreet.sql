@@ -1,0 +1,1 @@
+ALTER TABLE "appointments" ADD COLUMN "arrival_confirmed_at" timestamp with time zone;

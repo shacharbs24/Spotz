@@ -7,23 +7,27 @@ import type { AppointmentStatus } from "@spotz/api/schemas/appointment";
 interface ConfirmActionsProps {
   appointmentId: string;
   initialStatus: AppointmentStatus;
+  initialArrivalConfirmed: boolean;
 }
 
 export function ConfirmActions({
   appointmentId,
   initialStatus,
+  initialArrivalConfirmed,
 }: ConfirmActionsProps) {
   const [result, setResult] = useState<"CONFIRMED" | "CANCELLED" | null>(null);
 
   const update = trpc.public.updateAppointmentStatusPublic.useMutation({
-    onSuccess: (res) => setResult(res.status as "CONFIRMED" | "CANCELLED"),
+    onSuccess: (res) =>
+      setResult(res.arrivalConfirmed ? "CONFIRMED" : "CANCELLED"),
   });
 
-  // What the page should reflect: a just-made choice, or an already-handled appt.
-  const outcome: AppointmentStatus | null =
-    result ?? (initialStatus !== "PENDING" ? initialStatus : null);
+  // Arrival is confirmed independently of status, so an auto-approved (already
+  // CONFIRMED) appointment still shows the buttons until the client taps them.
+  const arrivalConfirmed = result === "CONFIRMED" || initialArrivalConfirmed;
+  const cancelled = result === "CANCELLED" || initialStatus === "CANCELLED";
 
-  if (outcome === "CONFIRMED") {
+  if (arrivalConfirmed) {
     return (
       <Outcome
         tone="success"
@@ -33,7 +37,7 @@ export function ConfirmActions({
       />
     );
   }
-  if (outcome === "CANCELLED") {
+  if (cancelled) {
     return (
       <Outcome
         tone="danger"
@@ -43,7 +47,7 @@ export function ConfirmActions({
       />
     );
   }
-  if (outcome === "COMPLETED") {
+  if (initialStatus === "COMPLETED") {
     return <Outcome tone="muted" icon="✓" title="התור כבר הושלם" />;
   }
 

@@ -66,7 +66,7 @@ export function AgendaRow({
 
       <div className="flex flex-1 flex-col gap-3 rounded-2xl border border-line bg-surface-raised p-4 shadow-soft sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold tracking-tight text-ink">
               {appointment.serviceName}
             </span>
@@ -75,6 +75,11 @@ export function AgendaRow({
             >
               {meta.label}
             </span>
+            {appointment.arrivalConfirmed && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">
+                ✅ אישר/ה הגעה
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="text-ink">{appointment.clientName}</span>
