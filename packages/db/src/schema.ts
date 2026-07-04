@@ -87,6 +87,10 @@ export const services = pgTable("services", {
   priceCents: integer("price_cents").notNull(), // אגורות — תמיד שלמים, לא float
   currency: text("currency").notNull().default("ILS"),
   isActive: boolean("is_active").notNull().default(true),
+  // When true, bookings for this service start as PENDING and await manual owner
+  // approval; when false they are auto-confirmed (CONFIRMED) on creation.
+  // Defaults to manual approval to preserve the pre-feature booking behavior.
+  requiresApproval: boolean("requires_approval").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

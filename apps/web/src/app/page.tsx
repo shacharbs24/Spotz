@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
 import Image from "next/image";
 import { RoleSelect } from "@/components/landing/RoleSelect";
 import { HeaderLoginButton } from "@/components/landing/HeaderLoginButton";
@@ -17,6 +17,11 @@ export default async function Home() {
     const profile = await caller.me.getProfile();
     role = profile.role;
     fullName = profile.fullName;
+  }
+
+  // Owners skip the landing entirely — straight to their active dashboard.
+  if (userId && role === "OWNER") {
+    redirect("/dashboard");
   }
 
   const isClient = role === "CLIENT";
@@ -36,21 +41,7 @@ export default async function Home() {
         <span className="text-lg font-bold tracking-tight text-ink">
           Spotz<span className="text-owner">.</span>
         </span>
-        {userId ? (
-          <div className="flex items-center gap-3">
-            {role === "OWNER" && (
-              <Link
-                href="/dashboard"
-                className="text-sm font-medium text-ink-muted transition-colors hover:text-ink"
-              >
-                לוח הבקרה
-              </Link>
-            )}
-            <UserButton />
-          </div>
-        ) : (
-          <HeaderLoginButton />
-        )}
+        {userId ? <UserButton /> : <HeaderLoginButton />}
       </header>
 
       <section
@@ -65,7 +56,7 @@ export default async function Home() {
             <div className="flex flex-col items-center gap-5">
               <div className="relative h-40 w-40 sm:h-48 sm:w-48">
                 <Image
-                  src="/Spotz-prople.png"
+                  src="/Spotz-profile.png"
                   alt="Spotz"
                   fill
                   priority
@@ -85,18 +76,6 @@ export default async function Home() {
             </div>
             <RoleSelect />
           </>
-        )}
-
-        {userId && role === "OWNER" && (
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-line bg-surface-raised px-8 py-7 shadow-soft">
-            <p className="text-base text-ink">שמחים לראות אתכם שוב 👋</p>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03]"
-            >
-              מעבר ללוח הבקרה
-            </Link>
-          </div>
         )}
 
         {userId && isClient && <ClientPortal name={fullName} />}

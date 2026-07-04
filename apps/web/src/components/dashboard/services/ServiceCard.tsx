@@ -37,6 +37,18 @@ export function ServiceCard({
         </span>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {service.requiresApproval ? (
+          <span className="inline-flex items-center rounded-full bg-pending-soft px-2.5 py-0.5 text-xs font-medium text-pending">
+            אישור ידני
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">
+            אישור אוטומטי
+          </span>
+        )}
+      </div>
+
       <div className="flex items-center justify-end gap-3">
         {confirming ? (
           <span className="inline-flex items-center gap-2 text-sm">

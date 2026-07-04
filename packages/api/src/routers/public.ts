@@ -293,6 +293,7 @@ export const publicRouter = router({
           priceCents: tables.services.priceCents,
           durationMinutes: tables.services.durationMinutes,
           isActive: tables.services.isActive,
+          requiresApproval: tables.services.requiresApproval,
         })
         .from(tables.services)
         .where(eq(tables.services.id, input.serviceId));
@@ -356,7 +357,8 @@ export const publicRouter = router({
             clientId: client.id,
             startAt: startAt.toJSDate(),
             endAt: endAt.toJSDate(),
-            status: "PENDING",
+            // Auto-confirm unless the service requires manual owner approval.
+            status: service.requiresApproval ? "PENDING" : "CONFIRMED",
             priceCentsSnapshot: service.priceCents,
           })
           .returning({ id: tables.appointments.id });

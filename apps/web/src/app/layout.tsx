@@ -14,6 +14,11 @@ const heebo = Heebo({
 export const metadata: Metadata = {
   title: "Spotz — מערכת לתיאום תורים",
   description: "פלטפורמה לתיאום תורים לעסקים קטנים — מספרות, קוסמטיקה ועוד",
+  icons: {
+    icon: "/Spotz-profile.png",
+    shortcut: "/Spotz-profile.png",
+    apple: "/Spotz-profile.png",
+  },
 };
 
 export default function RootLayout({

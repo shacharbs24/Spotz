@@ -95,6 +95,8 @@ export const appointmentsRouter = router({
         )
         .orderBy(asc(tables.appointments.startAt));
 
+    const now = DateTime.now().setZone(business.timezone).toMillis();
+
     return rows.map((row) => {
       const start = DateTime.fromJSDate(row.startAt)
         .setZone(business.timezone)
@@ -115,6 +117,9 @@ export const appointmentsRouter = router({
         }),
         startTime: start.toFormat("HH:mm"),
         endTime: end.toFormat("HH:mm"),
+        // Elapsed once the appointment's end time has passed — used to keep past
+        // items out of the dashboard's "today" widget.
+        isPast: end.toMillis() < now,
       };
     });
   }),

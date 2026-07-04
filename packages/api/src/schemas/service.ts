@@ -23,6 +23,9 @@ export const serviceInputSchema = z.object({
     .int()
     .min(0, "מחיר לא תקין")
     .max(100_000_000, "המחיר גבוה מדי"),
+  // When true, bookings for this service await manual owner approval (PENDING);
+  // otherwise they are auto-confirmed. Defaults to manual approval.
+  requiresApproval: z.boolean().default(true),
 });
 
 export type ServiceInput = z.infer<typeof serviceInputSchema>;

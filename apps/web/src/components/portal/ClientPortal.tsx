@@ -45,8 +45,23 @@ export function ClientPortal({ name }: { name: string | null }) {
         <p className="text-ink-muted">כאן תוכלו לעקוב אחר התורים שלכם.</p>
       </div>
 
+      {businesses.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            העסקים שלי
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {businesses.map((business) => (
+              <MyBusinessCard key={business.id} business={business} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-ink">תורים קרובים</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-ink">
+          התורים הבאים
+        </h2>
         {upcomingQuery.isLoading ? (
           <ListSkeleton />
         ) : upcoming.length === 0 ? (
@@ -73,7 +88,9 @@ export function ClientPortal({ name }: { name: string | null }) {
 
       {past.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-ink">היסטוריה</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            היסטוריית תורים
+          </h2>
           {past.map((appointment) => (
             <ClientApptCard
               key={appointment.id}
@@ -94,17 +111,6 @@ export function ClientPortal({ name }: { name: string | null }) {
               {pastQuery.isFetchingNextPage ? "טוען…" : "טען היסטוריה נוספת"}
             </button>
           )}
-        </section>
-      )}
-
-      {businesses.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-ink">העסקים שלי</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {businesses.map((business) => (
-              <MyBusinessCard key={business.id} business={business} />
-            ))}
-          </div>
         </section>
       )}
 

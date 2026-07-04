@@ -54,8 +54,15 @@ export function ServiceForm({ service, onClose }: ServiceFormProps) {
           description: service.description ?? "",
           durationMinutes: service.durationMinutes,
           priceShekels: service.priceCents / 100,
+          requiresApproval: service.requiresApproval,
         }
-      : { name: "", description: "", durationMinutes: 30, priceShekels: 0 },
+      : {
+          name: "",
+          description: "",
+          durationMinutes: 30,
+          priceShekels: 0,
+          requiresApproval: true,
+        },
   });
 
   const isPending = create.isPending || update.isPending;
@@ -67,6 +74,7 @@ export function ServiceForm({ service, onClose }: ServiceFormProps) {
       description: values.description,
       durationMinutes: values.durationMinutes,
       priceAgorot: Math.round(values.priceShekels * 100),
+      requiresApproval: values.requiresApproval,
     };
     if (service) {
       update.mutate({ ...payload, id: service.id });
@@ -136,6 +144,23 @@ export function ServiceForm({ service, onClose }: ServiceFormProps) {
           />
         </Field>
       </div>
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface-raised px-4 py-3 transition-colors hover:border-owner/40">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-owner"
+          {...register("requiresApproval")}
+        />
+        <span className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-ink">
+            אישור ידני על ידי בעל העסק
+          </span>
+          <span className="text-xs leading-5 text-ink-muted">
+            כשמסומן, תורים לשירות זה יישארו בסטטוס &quot;ממתין&quot; עד לאישורכם.
+            אחרת הם יאושרו אוטומטית.
+          </span>
+        </span>
+      </label>
 
       {mutationError && (
         <p

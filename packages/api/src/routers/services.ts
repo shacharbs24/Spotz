@@ -92,6 +92,7 @@ export const servicesRouter = router({
           description: input.description?.trim() || null,
           durationMinutes: input.durationMinutes,
           priceCents: input.priceAgorot,
+          requiresApproval: input.requiresApproval,
         })
         .returning();
       return created;
@@ -110,6 +111,7 @@ export const servicesRouter = router({
           description: input.description?.trim() || null,
           durationMinutes: input.durationMinutes,
           priceCents: input.priceAgorot,
+          requiresApproval: input.requiresApproval,
         })
         .where(eq(tables.services.id, input.id))
         .returning();
