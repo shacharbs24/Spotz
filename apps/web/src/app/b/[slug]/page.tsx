@@ -4,6 +4,7 @@ import { getServerCaller } from "@/trpc/server";
 import { PublicServices } from "@/components/public/PublicServices";
 import { BusinessReviews } from "@/components/public/BusinessReviews";
 import { PublicReviewButton } from "@/components/public/PublicReviewButton";
+import { BackButton } from "@/components/public/BackButton";
 import { StarRating } from "@/components/ui/StarRating";
 
 interface PublicBusinessPageProps {
@@ -48,6 +49,11 @@ export default async function PublicBusinessPage({
         aria-hidden="true"
         className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[40rem] -translate-x-1/2 rounded-full bg-owner-soft blur-3xl"
       />
+
+      {/* Back to the client's portal / previous page */}
+      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">
+        <BackButton />
+      </div>
 
       {/* 1. Business image — prominent cover at the very top */}
       {business.imageUrl ? (
