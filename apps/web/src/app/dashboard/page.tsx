@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { TodayAppointments } from "@/components/dashboard/appointments/TodayAppointments";
+import { CopyLinkButton } from "@/components/dashboard/CopyLinkButton";
 import { getServerCaller } from "@/trpc/server";
 
 const DASHBOARD_CARDS: readonly {
@@ -36,6 +37,8 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
+  const business = await caller.businesses.getMyBusiness();
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
       <header className="flex items-center justify-between border-b border-line pb-5">
@@ -45,9 +48,14 @@ export default async function DashboardPage() {
         <UserButton />
       </header>
 
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-ink">לוח הבקרה</h1>
-        <p className="text-ink-muted">ניהול העסק, השירותים והתורים שלך.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight text-ink">
+            לוח הבקרה
+          </h1>
+          <p className="text-ink-muted">ניהול העסק, השירותים והתורים שלך.</p>
+        </div>
+        {business && <CopyLinkButton slug={business.slug} />}
       </div>
 
       <section className="flex flex-col gap-4">
