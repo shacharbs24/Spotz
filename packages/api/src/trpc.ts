@@ -30,3 +30,24 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   }
   return next({ ctx: { clerkUserId: ctx.clerkUserId, user: ctx.user } });
 });
+
+/**
+ * Clerk user IDs granted platform-admin access (comma-separated env var).
+ * Parsed once at module load. Kept server-only — never expose this list to the
+ * client, so the admin route's existence stays undiscoverable.
+ */
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
+
+/**
+ * Procedure restricted to platform admins. Throws FORBIDDEN for everyone else
+ * (including authenticated non-admins), so callers can map it to a 404.
+ */
+export const adminProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.clerkUserId || !ADMIN_USER_IDS.includes(ctx.clerkUserId)) {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx: { clerkUserId: ctx.clerkUserId, user: ctx.user } });
+});
