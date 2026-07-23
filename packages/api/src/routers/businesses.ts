@@ -23,11 +23,8 @@ async function requireUser(clerkUserId: string) {
 export const businessesRouter = router({
   /** The business owned by the current user, or `null` if none yet. */
   getMyBusiness: protectedProcedure.query(async ({ ctx }) => {
-    const [user] = await db
-      .select()
-      .from(tables.users)
-      .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
-
+    // ctx.user is loaded once per request in createClerkContext — no re-query.
+    const user = ctx.user;
     if (!user) return null;
 
     const [business] = await db

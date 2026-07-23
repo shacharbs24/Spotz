@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { heIL } from "@clerk/localizations";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TRPCProvider } from "@/trpc/Provider";
 import "./globals.css";
 
@@ -14,11 +15,6 @@ const heebo = Heebo({
 export const metadata: Metadata = {
   title: "Spotz — מערכת לתיאום תורים",
   description: "פלטפורמה לתיאום תורים לעסקים קטנים — מספרות, קוסמטיקה ועוד",
-  icons: {
-    icon: "/Spotz-profile.png",
-    shortcut: "/Spotz-profile.png",
-    apple: "/Spotz-profile.png",
-  },
 };
 
 export default function RootLayout({
@@ -36,6 +32,7 @@ export default function RootLayout({
       >
         <body className="min-h-full flex flex-col font-sans">
           <TRPCProvider>{children}</TRPCProvider>
+          <SpeedInsights />
         </body>
       </html>
     </ClerkProvider>

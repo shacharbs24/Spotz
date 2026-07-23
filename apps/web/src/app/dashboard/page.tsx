@@ -25,19 +25,21 @@ const DASHBOARD_CARDS: readonly {
  * modules below. The full multi-day agenda stays reachable via the "תורים" card.
  */
 export default async function DashboardPage() {
-  const { userId } = await auth();
+  const [{ userId }, caller] = await Promise.all([auth(), getServerCaller()]);
   if (!userId) {
     redirect("/");
   }
 
-  // Owner-only route — clients are sent back to their home portal.
-  const caller = await getServerCaller();
-  const { role } = await caller.me.getProfile();
+  // Owner-only route — clients are sent back to their home portal. The profile
+  // (role gate) and the business load are independent, so fetch them together;
+  // getMyBusiness returns null for a non-owner, so the eager fetch is harmless.
+  const [{ role }, business] = await Promise.all([
+    caller.me.getProfile(),
+    caller.businesses.getMyBusiness(),
+  ]);
   if (role !== "OWNER") {
     redirect("/");
   }
-
-  const business = await caller.businesses.getMyBusiness();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">

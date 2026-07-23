@@ -10,16 +10,19 @@ interface OnboardingPageProps {
 export default async function OnboardingPage({
   searchParams,
 }: OnboardingPageProps) {
-  const { userId } = await auth();
+  // Session, caller, and search params are independent — resolve together.
+  const [{ userId }, caller, { redirect: redirectParam }] = await Promise.all([
+    auth(),
+    getServerCaller(),
+    searchParams,
+  ]);
   if (!userId) {
     redirect("/");
   }
 
-  const caller = await getServerCaller();
   const profile = await caller.me.getProfile();
 
   // Only allow internal redirect targets (avoid open redirect).
-  const { redirect: redirectParam } = await searchParams;
   const redirectTo =
     redirectParam && redirectParam.startsWith("/") ? redirectParam : "/";
 

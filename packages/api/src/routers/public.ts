@@ -87,37 +87,41 @@ async function computeAvailableSlots(
   const startMin = timeToMinutes(hours.startTime);
   const endMin = timeToMinutes(hours.endTime);
 
-  // Existing appointments that fall on this calendar day (business tz).
+  // Appointments and blocked periods for this day are independent of each other
+  // (both keyed only on businessId + the day window computed above), so fetch
+  // them concurrently.
   const dayEnd = dayStart.plus({ days: 1 });
-  const existing = await db
-    .select({
-      startAt: tables.appointments.startAt,
-      endAt: tables.appointments.endAt,
-      status: tables.appointments.status,
-    })
-    .from(tables.appointments)
-    .where(
-      and(
-        eq(tables.appointments.businessId, businessId),
-        gte(tables.appointments.startAt, dayStart.toJSDate()),
-        lt(tables.appointments.startAt, dayEnd.toJSDate()),
+  const [existing, blocks] = await Promise.all([
+    // Existing appointments that fall on this calendar day (business tz).
+    db
+      .select({
+        startAt: tables.appointments.startAt,
+        endAt: tables.appointments.endAt,
+        status: tables.appointments.status,
+      })
+      .from(tables.appointments)
+      .where(
+        and(
+          eq(tables.appointments.businessId, businessId),
+          gte(tables.appointments.startAt, dayStart.toJSDate()),
+          lt(tables.appointments.startAt, dayEnd.toJSDate()),
+        ),
       ),
-    );
-
-  // Blocked periods (vacations / manual blocks) overlapping this day.
-  const blocks = await db
-    .select({
-      startAt: tables.blockedPeriods.startAt,
-      endAt: tables.blockedPeriods.endAt,
-    })
-    .from(tables.blockedPeriods)
-    .where(
-      and(
-        eq(tables.blockedPeriods.businessId, businessId),
-        lt(tables.blockedPeriods.startAt, dayEnd.toJSDate()),
-        gt(tables.blockedPeriods.endAt, dayStart.toJSDate()),
+    // Blocked periods (vacations / manual blocks) overlapping this day.
+    db
+      .select({
+        startAt: tables.blockedPeriods.startAt,
+        endAt: tables.blockedPeriods.endAt,
+      })
+      .from(tables.blockedPeriods)
+      .where(
+        and(
+          eq(tables.blockedPeriods.businessId, businessId),
+          lt(tables.blockedPeriods.startAt, dayEnd.toJSDate()),
+          gt(tables.blockedPeriods.endAt, dayStart.toJSDate()),
+        ),
       ),
-    );
+  ]);
 
   // Configured intra-day breaks for this weekday (e.g. a lunch pause).
   const breakIntervals = (hours.breaks ?? []).map((brk) => ({
@@ -271,14 +275,8 @@ export const publicRouter = router({
     .mutation(async ({ ctx, input }) => {
       const business = await requireBusiness(input.businessId);
 
-      const [user] = await db
-        .select({
-          id: tables.users.id,
-          fullName: tables.users.fullName,
-          phone: tables.users.phone,
-        })
-        .from(tables.users)
-        .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
+      // ctx.user is loaded once per request in createClerkContext — no re-query.
+      const user = ctx.user;
       if (!user) {
         throw new TRPCError({ code: "NOT_FOUND", message: "המשתמש לא נמצא." });
       }

@@ -8,7 +8,7 @@ import { meRouter } from "./routers/me";
 import { reviewsRouter } from "./routers/reviews";
 import { publicRouter } from "./routers/public";
 
-export type { Context } from "./trpc";
+export type { Context, AuthUser } from "./trpc";
 export { router, publicProcedure, protectedProcedure } from "./trpc";
 
 /** Root application router. Add feature routers here. */
