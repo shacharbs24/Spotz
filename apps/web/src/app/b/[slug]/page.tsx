@@ -14,8 +14,12 @@ interface PublicBusinessPageProps {
 export default async function PublicBusinessPage({
   params,
 }: PublicBusinessPageProps) {
-  const { slug } = await params;
-  const caller = await getServerCaller();
+  // slug, the tRPC caller, and the Clerk session are mutually independent.
+  const [{ slug }, caller, { userId }] = await Promise.all([
+    params,
+    getServerCaller(),
+    auth(),
+  ]);
   const data = await caller.public.getBusinessBySlug({ slug });
 
   if (!data) {
@@ -23,14 +27,13 @@ export default async function PublicBusinessPage({
   }
 
   const { business, services } = data;
-  const [ratingSummary, reviews] = await Promise.all([
+  // Rating summary + reviews depend only on business.id; the viewer profile
+  // depends only on userId — all three are independent, so fetch in parallel.
+  const [ratingSummary, reviews, profile] = await Promise.all([
     caller.reviews.getBusinessRatingSummary({ businessId: business.id }),
     caller.reviews.getBusinessReviews({ businessId: business.id }),
+    userId ? caller.me.getProfile() : Promise.resolve(null),
   ]);
-
-  // Booking requires an authenticated + onboarded user.
-  const { userId } = await auth();
-  const profile = userId ? await caller.me.getProfile() : null;
   const viewerName = profile?.fullName ?? "";
   const authState: "guest" | "needs-onboarding" | "ready" = !userId
     ? "guest"

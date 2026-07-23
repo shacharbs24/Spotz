@@ -25,31 +25,15 @@ const appointmentSelect = {
   reviewId: tables.reviews.id, // left-joined → null when not reviewed
 } as const;
 
-/** Resolves the local user row for the authenticated Clerk user, or throws. */
-async function requireUser(clerkUserId: string) {
-  const [user] = await db
-    .select()
-    .from(tables.users)
-    .where(eq(tables.users.clerkUserId, clerkUserId));
-  if (!user) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "המשתמש לא נמצא." });
-  }
-  return user;
-}
-
 export const meRouter = router({
   /** Current user's role + name + phone (used to branch the home page and
-   * pre-fill the booking form). */
-  getProfile: protectedProcedure.query(async ({ ctx }) => {
-    const [user] = await db
-      .select({
-        role: tables.users.role,
-        fullName: tables.users.fullName,
-        phone: tables.users.phone,
-      })
-      .from(tables.users)
-      .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
-    return user ?? { role: "CLIENT" as const, fullName: null, phone: null };
+   * pre-fill the booking form). Reads the request-scoped `ctx.user` loaded once
+   * in createClerkContext — no per-procedure re-query. */
+  getProfile: protectedProcedure.query(({ ctx }) => {
+    const user = ctx.user;
+    return user
+      ? { role: user.role, fullName: user.fullName, phone: user.phone }
+      : { role: "CLIENT" as const, fullName: null, phone: null };
   }),
 
   /** Save onboarding details (name + phone) to the signed-in user's profile. */
@@ -69,10 +53,7 @@ export const meRouter = router({
 
   /** The signed-in client's upcoming appointments (chronological). */
   getMyAppointments: protectedProcedure.query(async ({ ctx }) => {
-    const [user] = await db
-      .select({ id: tables.users.id })
-      .from(tables.users)
-      .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
+    const user = ctx.user;
     if (!user) return { upcoming: [] };
 
     const rows = await db
@@ -114,10 +95,7 @@ export const meRouter = router({
     .query(async ({ ctx, input }) => {
       const offset = input.cursor ?? 0;
 
-      const [user] = await db
-        .select({ id: tables.users.id })
-        .from(tables.users)
-        .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
+      const user = ctx.user;
       if (!user) return { items: [], nextCursor: null };
 
       const rows = await db
@@ -160,10 +138,7 @@ export const meRouter = router({
 
   /** Distinct businesses where the signed-in client has at least one appointment. */
   getMyBusinesses: protectedProcedure.query(async ({ ctx }) => {
-    const [user] = await db
-      .select({ id: tables.users.id })
-      .from(tables.users)
-      .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
+    const user = ctx.user;
     if (!user) return [];
 
     return db
@@ -190,7 +165,10 @@ export const meRouter = router({
   cancelMyAppointment: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const user = await requireUser(ctx.clerkUserId);
+      const user = ctx.user;
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "המשתמש לא נמצא." });
+      }
 
       const [appt] = await db
         .select({
