@@ -2,6 +2,7 @@ import "server-only";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { db, tables, eq } from "@spotz/db";
 import type { AuthUser, Context } from "@spotz/api";
+import { normalizeIsraeliPhone } from "@spotz/api/lib/phone";
 
 /** Columns projected into `ctx.user`; keep in sync with AuthUser. */
 const userColumns = {
@@ -39,10 +40,13 @@ async function loadOrSyncUser(clerkUserId: string): Promise<AuthUser | null> {
 
   const fullName =
     [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || null;
-  const phone =
+  // Normalize to the canonical form; store null if unnormalizable rather than
+  // failing the lazy sync over a phone format.
+  const phone = normalizeIsraeliPhone(
     user.primaryPhoneNumber?.phoneNumber ??
-    user.phoneNumbers[0]?.phoneNumber ??
-    null;
+      user.phoneNumbers[0]?.phoneNumber ??
+      null,
+  );
   // Mirror the webhook: role intent comes from unsafeMetadata, defaulting CLIENT.
   const roleRaw = (user.unsafeMetadata as { role?: unknown })?.role;
   const role = roleRaw === "OWNER" || roleRaw === "CLIENT" ? roleRaw : "CLIENT";

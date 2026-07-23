@@ -42,7 +42,8 @@ export const meRouter = router({
     .mutation(async ({ ctx, input }) => {
       const [updated] = await db
         .update(tables.users)
-        .set({ fullName: input.fullName.trim(), phone: input.phone.trim() })
+        // input.phone is already normalized (E.164-without-plus) by the schema.
+        .set({ fullName: input.fullName.trim(), phone: input.phone })
         .where(eq(tables.users.clerkUserId, ctx.clerkUserId))
         .returning({ id: tables.users.id });
       if (!updated) {

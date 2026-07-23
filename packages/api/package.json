@@ -15,6 +15,7 @@
     "./schemas/block": "./src/schemas/block.ts",
     "./schemas/review": "./src/schemas/review.ts",
     "./schemas/profile": "./src/schemas/profile.ts",
+    "./lib/phone": "./src/lib/phone.ts",
     "./reminders": "./src/services/reminders.ts"
   },
   "dependencies": {

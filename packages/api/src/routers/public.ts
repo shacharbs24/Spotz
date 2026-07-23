@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 import { createAppointmentSchema } from "../schemas/booking";
+import { normalizeIsraeliPhone } from "../lib/phone";
 
 /** "09:00:00" / "09:00" → minutes since midnight. */
 function timeToMinutes(time: string): number {
@@ -281,8 +282,11 @@ export const publicRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "המשתמש לא נמצא." });
       }
       // Onboarding is required before booking (name + phone on the profile).
+      // Normalize the profile phone to the canonical E.164-without-plus form so
+      // it's stored consistently and drives the (businessId, phone) client key.
+      // An unnormalizable legacy phone fails this gate → "complete your profile".
       const fullName = user.fullName?.trim();
-      const phone = user.phone?.trim();
+      const phone = normalizeIsraeliPhone(user.phone);
       if (!fullName || !phone) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",

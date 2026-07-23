@@ -1,6 +1,7 @@
 import { Webhook } from "svix";
 import { z } from "zod";
 import { db, tables } from "@spotz/db";
+import { normalizeIsraeliPhone } from "@spotz/api/lib/phone";
 
 /**
  * Clerk user webhook. Keeps the local `users` table in sync with Clerk, which
@@ -112,7 +113,9 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const fullName = resolveFullName(data);
-  const phone = resolvePhone(data);
+  // Normalize to the canonical form; store null if unnormalizable rather than
+  // rejecting the sync (identity sync must not fail over a phone format).
+  const phone = normalizeIsraeliPhone(resolvePhone(data));
   // Default to CLIENT when no (valid) role intent was provided at sign-up.
   const role = data.unsafe_metadata?.role ?? "CLIENT";
 
