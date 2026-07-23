@@ -7,15 +7,9 @@ import { blocksRouter } from "./routers/blocks";
 import { meRouter } from "./routers/me";
 import { reviewsRouter } from "./routers/reviews";
 import { publicRouter } from "./routers/public";
-import { adminRouter } from "./routers/admin";
 
 export type { Context, AuthUser } from "./trpc";
-export {
-  router,
-  publicProcedure,
-  protectedProcedure,
-  adminProcedure,
-} from "./trpc";
+export { router, publicProcedure, protectedProcedure } from "./trpc";
 
 /** Root application router. Add feature routers here. */
 export const appRouter = router({
@@ -32,7 +26,6 @@ export const appRouter = router({
   me: meRouter,
   reviews: reviewsRouter,
   public: publicRouter,
-  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;
