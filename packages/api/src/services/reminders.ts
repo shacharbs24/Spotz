@@ -2,7 +2,7 @@ import { eq, and, or, gte, lt, asc } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db, tables } from "@spotz/db";
 import { normalizeIsraeliPhone } from "../lib/phone";
-import { sendWhatsAppReminder } from "./whatsapp";
+import { sendWhatsAppReminder, WhatsAppApiError } from "./whatsapp";
 
 /**
  * 24h WhatsApp reminders for appointments happening "tomorrow" in each
@@ -121,6 +121,11 @@ export async function sendDueAppointmentReminders(
     });
     const time = localized.toFormat("HH:mm");
     const phone = normalizeIsraeliPhone(row.clientPhone);
+    // Distinguish "no number on file" from "number we couldn't normalize" so the
+    // recorded skip reason is actionable.
+    const skipReason = row.clientPhone?.trim()
+      ? "invalid phone format"
+      : "missing phone";
     const confirmUrl = `${appBaseUrl}/b/confirm/${row.appointmentId}`;
 
     const base = {
@@ -141,7 +146,7 @@ export async function sendDueAppointmentReminders(
         summary.results.push({
           ...base,
           outcome: "WOULD_SKIP",
-          reason: "invalid phone",
+          reason: skipReason,
         });
       } else {
         summary.results.push({ ...base, outcome: "WOULD_SEND" });
@@ -181,7 +186,7 @@ export async function sendDueAppointmentReminders(
         .update(tables.appointmentMessages)
         .set({
           status: "SKIPPED",
-          errorMessage: "invalid phone",
+          errorMessage: skipReason,
           updatedAt: new Date(),
         })
         .where(eq(tables.appointmentMessages.id, claimed.id));
@@ -189,7 +194,7 @@ export async function sendDueAppointmentReminders(
       summary.results.push({
         ...base,
         outcome: "SKIPPED",
-        reason: "invalid phone",
+        reason: skipReason,
       });
       continue;
     }
@@ -217,7 +222,10 @@ export async function sendDueAppointmentReminders(
       summary.sent += 1;
       summary.results.push({ ...base, outcome: "SENT" });
     } catch (error) {
-      const reason = error instanceof Error ? error.message : "send failed";
+      // Capture the Meta error code alongside the message, not just HTTP status.
+      const code = error instanceof WhatsAppApiError ? error.code : null;
+      const rawMessage = error instanceof Error ? error.message : "send failed";
+      const reason = code !== null ? `Meta ${code}: ${rawMessage}` : rawMessage;
       await db
         .update(tables.appointmentMessages)
         .set({

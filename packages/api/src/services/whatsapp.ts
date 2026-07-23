@@ -29,6 +29,19 @@ export interface WhatsAppSendResult {
   messageId: string;
 }
 
+/**
+ * Error carrying the Meta API error code + message parsed from the response
+ * body, so callers can record both — not just the HTTP status.
+ */
+export class WhatsAppApiError extends Error {
+  readonly code: number | null;
+  constructor(message: string, code: number | null) {
+    super(message);
+    this.name = "WhatsAppApiError";
+    this.code = code;
+  }
+}
+
 interface WhatsAppApiResponse {
   messages?: { id: string }[];
   error?: { message?: string; code?: number };
@@ -86,8 +99,10 @@ export async function sendWhatsAppReminder(
   const json = (await res.json().catch(() => null)) as WhatsAppApiResponse | null;
 
   if (!res.ok) {
-    const detail = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new Error(`WhatsApp send failed: ${detail}`);
+    // Prefer the structured Meta error (code + message) over the bare HTTP status.
+    const apiMessage = json?.error?.message ?? `HTTP ${res.status}`;
+    const apiCode = json?.error?.code ?? null;
+    throw new WhatsAppApiError(apiMessage, apiCode);
   }
 
   const messageId = json?.messages?.[0]?.id;
