@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { trpc } from "@/trpc/client";
 import { formatPrice } from "@/lib/format";
 import { Modal } from "@/components/ui/Modal";
@@ -137,10 +138,11 @@ function MyBusinessCard({ business }: { business: MyBusiness }) {
       className="group flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-3 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-owner/40"
     >
       {business.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={business.imageUrl}
           alt={business.name}
+          width={56}
+          height={56}
           className="h-14 w-14 shrink-0 rounded-xl object-cover"
         />
       ) : (

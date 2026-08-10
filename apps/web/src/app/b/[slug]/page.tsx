@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { getServerCaller } from "@/trpc/server";
@@ -61,12 +62,16 @@ export default async function PublicBusinessPage({
       {/* 1. Business image — prominent cover at the very top */}
       {business.imageUrl ? (
         <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={business.imageUrl}
-            alt={business.name}
-            className="h-48 w-full rounded-2xl border border-line object-cover shadow-soft sm:h-72"
-          />
+          <div className="relative h-48 w-full overflow-hidden rounded-2xl border border-line shadow-soft sm:h-72">
+            <Image
+              src={business.imageUrl}
+              alt={business.name}
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="object-cover"
+            />
+          </div>
         </div>
       ) : null}
 

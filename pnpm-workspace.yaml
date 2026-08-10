@@ -1,6 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+# Dedupe zod to the app's version. @vercel/blob pulls zod v4 transitively via
+# @vercel/oidc → @vercel/cli-config (OIDC/CLI plumbing, dormant when a
+# BLOB_READ_WRITE_TOKEN is provided). A second zod makes @hookform/resolvers
+# resolve to v4 types and breaks every form's zodResolver, so we force one copy.
+overrides:
+  zod: "3.25.76"
 allowBuilds:
   '@clerk/shared': true
   esbuild: true

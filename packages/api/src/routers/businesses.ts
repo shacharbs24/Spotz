@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, protectedProcedure } from "../trpc";
 import { businessInputSchema } from "../schemas/business";
+import { deleteManagedBlob } from "../lib/blob";
 
 /** Resolves the local `users` row for the authenticated Clerk user. */
 async function requireUser(clerkUserId: string) {
@@ -98,6 +99,11 @@ export const businessesRouter = router({
           })
           .where(eq(tables.businesses.id, existing.id))
           .returning();
+        // Reclaim the previous image once the new value is committed. No-ops
+        // unless the old value was a Blob we manage (covers replace and removal).
+        if (existing.imageUrl !== imageUrl) {
+          await deleteManagedBlob(existing.imageUrl);
+        }
         return updated;
       }
 

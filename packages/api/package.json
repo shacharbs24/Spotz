@@ -21,6 +21,7 @@
   "dependencies": {
     "@spotz/db": "workspace:*",
     "@trpc/server": "^11.7.1",
+    "@vercel/blob": "^2.7.0",
     "drizzle-orm": "^0.44.7",
     "luxon": "^3.5.0",
     "zod": "^3.25.76"

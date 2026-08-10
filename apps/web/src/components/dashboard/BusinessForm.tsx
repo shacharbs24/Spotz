@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { upload } from "@vercel/blob/client";
+import Image from "next/image";
 import {
   businessInputSchema,
   type BusinessInput,
@@ -16,16 +19,7 @@ const TIMEZONES: readonly { value: string; label: string }[] = [
   { value: "America/New_York", label: "ניו יורק (America/New_York)" },
 ];
 
-const MAX_IMAGE_BYTES = 1_000_000; // ~1MB before Base64 inflation
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
+const MAX_IMAGE_BYTES = 1_000_000; // 1MB ceiling — enforced again server-side
 
 export function BusinessForm() {
   const utils = trpc.useUtils();
@@ -80,17 +74,34 @@ export function BusinessForm() {
   const slugPreview = (watch("slug") || "your-business").trim();
   const imageUrlPreview = watch("imageUrl")?.trim();
   const autoOpen = watch("autoOpenCalendar");
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("imageUrl", { message: "יש להעלות קובץ תמונה בלבד" });
+      return;
+    }
     if (file.size > MAX_IMAGE_BYTES) {
       setError("imageUrl", { message: "התמונה גדולה מדי (עד 1MB)" });
       return;
     }
     clearErrors("imageUrl");
-    const dataUrl = await readAsDataUrl(file);
-    setValue("imageUrl", dataUrl, { shouldDirty: true, shouldValidate: true });
+    setIsUploading(true);
+    try {
+      // Bytes go straight to Blob; the token route authorizes ownership first.
+      const { url } = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob/upload",
+        clientPayload: JSON.stringify({ businessId: existing?.id ?? null }),
+      });
+      setValue("imageUrl", url, { shouldDirty: true, shouldValidate: true });
+    } catch {
+      setError("imageUrl", { message: "העלאת התמונה נכשלה. נסו שוב." });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (businessQuery.isLoading) {
@@ -168,10 +179,11 @@ export function BusinessForm() {
       >
         {imageUrlPreview ? (
           <div className="mb-2 flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={imageUrlPreview}
               alt="תצוגה מקדימה"
+              width={80}
+              height={80}
               className="h-20 w-20 rounded-xl border border-line object-cover"
             />
             <button
@@ -306,14 +318,16 @@ export function BusinessForm() {
       <div className="flex items-center justify-end gap-3">
         <button
           type="submit"
-          disabled={upsert.isPending}
+          disabled={upsert.isPending || isUploading}
           className="inline-flex items-center gap-2 rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {upsert.isPending
-            ? "שומר…"
-            : existing
-              ? "שמירת שינויים"
-              : "יצירת העסק"}
+          {isUploading
+            ? "מעלה תמונה…"
+            : upsert.isPending
+              ? "שומר…"
+              : existing
+                ? "שמירת שינויים"
+                : "יצירת העסק"}
         </button>
       </div>
     </form>
