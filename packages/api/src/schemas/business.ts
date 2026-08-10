@@ -26,18 +26,15 @@ export const businessInputSchema = z.object({
   timezone: z.string().min(1, "יש לבחור אזור זמן"),
   // Branding — optional. Empty input is allowed and normalized to null.
   description: z.string().trim().max(600, "התיאור ארוך מדי").optional(),
-  // Image is a Base64 data URL (uploaded file) or an http(s) URL. Large cap to
-  // fit a ~2MB image encoded as Base64.
+  // Image is now a hosted URL (Vercel Blob), never inline base64. Reject data:
+  // URIs so the DB never stores image bytes again.
   imageUrl: z
     .string()
     .trim()
-    .max(3_000_000, "התמונה גדולה מדי")
+    .max(2048, "כתובת התמונה ארוכה מדי")
+    .refine((v) => v === "" || /^https?:\/\//.test(v), "פורמט תמונה לא נתמך")
     .optional()
-    .or(z.literal(""))
-    .refine(
-      (v) => !v || v.startsWith("data:image/") || /^https?:\/\//.test(v),
-      "פורמט תמונה לא נתמך",
-    ),
+    .or(z.literal("")),
   // Physical location — optional, free-text Hebrew. Empty input is allowed and
   // normalized to null in the mutation.
   city: z.string().trim().max(80, "שם העיר ארוך מדי").optional(),
