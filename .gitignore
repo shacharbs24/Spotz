@@ -39,4 +39,4 @@ yarn-error.log*
 
 # Stray local secret notes (should be deleted — see setup notes)
 clark-passwords.txt
-database-url.txt
+database-url*.txt
