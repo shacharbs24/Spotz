@@ -32,7 +32,7 @@ async function handle(req: Request): Promise<Response> {
     // One-line run summary so skipped/failed sends are visible in cron logs
     // instead of being silent.
     console.log(
-      `[reminders]${dryRun ? " (dry-run)" : ""} attempted=${summary.considered} sent=${summary.sent} skipped=${summary.skipped} failed=${summary.failed} duplicates=${summary.duplicates}`,
+      `[reminders]${dryRun ? " (dry-run)" : ""} attempted=${summary.considered} sent=${summary.sent} retried=${summary.retried} skipped=${summary.skipped} failed=${summary.failed} duplicates=${summary.duplicates}`,
     );
     return Response.json(summary);
   } catch (error) {

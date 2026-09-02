@@ -47,7 +47,11 @@ export default async function PublicBusinessPage({
     .join(" · ");
 
   return (
-    <main className="relative flex flex-1 flex-col overflow-hidden bg-surface">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="relative flex flex-1 flex-col overflow-hidden bg-surface"
+    >
       {/* Atmospheric glow */}
       <div
         aria-hidden="true"
@@ -124,7 +128,10 @@ export default async function PublicBusinessPage({
               </span>
             </div>
           )}
-          <PublicReviewButton businessId={business.id} defaultName={viewerName} />
+          <PublicReviewButton
+            businessId={business.id}
+            defaultName={viewerName}
+          />
         </div>
       </header>
 
@@ -154,7 +161,13 @@ export default async function PublicBusinessPage({
 
 function PinIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <path
         d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z"
         stroke="currentColor"
@@ -168,7 +181,13 @@ function PinIcon() {
 
 function PhoneIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <path
         d="M6.5 4h3l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 6a2 2 0 0 1 2-2Z"
         stroke="currentColor"

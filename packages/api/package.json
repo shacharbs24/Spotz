@@ -18,6 +18,10 @@
     "./lib/phone": "./src/lib/phone.ts",
     "./reminders": "./src/services/reminders.ts"
   },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
   "dependencies": {
     "@spotz/db": "workspace:*",
     "@trpc/server": "^11.7.1",

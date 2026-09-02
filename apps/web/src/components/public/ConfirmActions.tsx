@@ -6,12 +6,14 @@ import type { AppointmentStatus } from "@spotz/api/schemas/appointment";
 
 interface ConfirmActionsProps {
   appointmentId: string;
+  token: string;
   initialStatus: AppointmentStatus;
   initialArrivalConfirmed: boolean;
 }
 
 export function ConfirmActions({
   appointmentId,
+  token,
   initialStatus,
   initialArrivalConfirmed,
 }: ConfirmActionsProps) {
@@ -66,7 +68,7 @@ export function ConfirmActions({
         type="button"
         disabled={update.isPending}
         onClick={() =>
-          update.mutate({ appointmentId, status: "CONFIRMED" })
+          update.mutate({ appointmentId, token, status: "CONFIRMED" })
         }
         className="w-full cursor-pointer rounded-2xl bg-success px-6 py-4 text-base font-semibold text-white transition-transform duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
       >
@@ -77,7 +79,7 @@ export function ConfirmActions({
         type="button"
         disabled={update.isPending}
         onClick={() =>
-          update.mutate({ appointmentId, status: "CANCELLED" })
+          update.mutate({ appointmentId, token, status: "CANCELLED" })
         }
         className="w-full cursor-pointer rounded-2xl border border-danger/40 bg-danger-soft px-6 py-4 text-base font-semibold text-danger transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
       >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { upload } from "@vercel/blob/client";
 import Image from "next/image";
@@ -34,8 +34,8 @@ export function BusinessForm() {
 
   const {
     register,
+    control,
     handleSubmit,
-    watch,
     setValue,
     setError,
     clearErrors,
@@ -50,6 +50,7 @@ export function BusinessForm() {
       imageUrl: "",
       city: "",
       address: "",
+      phone: "",
       autoOpenCalendar: true,
       autoOpenDays: 14,
       manualOpenUntil: "",
@@ -64,6 +65,7 @@ export function BusinessForm() {
           imageUrl: existing.imageUrl ?? "",
           city: existing.city ?? "",
           address: existing.address ?? "",
+          phone: existing.phone ?? "",
           autoOpenCalendar: existing.autoOpenCalendar,
           autoOpenDays: existing.autoOpenDays,
           manualOpenUntil: existing.manualOpenUntil ?? "",
@@ -71,9 +73,11 @@ export function BusinessForm() {
       : undefined,
   });
 
-  const slugPreview = (watch("slug") || "your-business").trim();
-  const imageUrlPreview = watch("imageUrl")?.trim();
-  const autoOpen = watch("autoOpenCalendar");
+  const slugPreview = (
+    useWatch({ control, name: "slug" }) || "your-business"
+  ).trim();
+  const imageUrlPreview = useWatch({ control, name: "imageUrl" })?.trim();
+  const autoOpen = useWatch({ control, name: "autoOpenCalendar" });
   const [isUploading, setIsUploading] = useState(false);
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,7 +240,27 @@ export function BusinessForm() {
         </Field>
       </div>
 
-      <Field label="אזור זמן" htmlFor="timezone" error={errors.timezone?.message}>
+      <Field
+        label="טלפון ליצירת קשר"
+        htmlFor="phone"
+        error={errors.phone?.message}
+        hint="יוצג בדף העסק הציבורי. לא חובה."
+      >
+        <input
+          id="phone"
+          type="tel"
+          dir="ltr"
+          placeholder="050-0000000"
+          className={`${inputClass(Boolean(errors.phone))} text-right`}
+          {...register("phone")}
+        />
+      </Field>
+
+      <Field
+        label="אזור זמן"
+        htmlFor="timezone"
+        error={errors.timezone?.message}
+      >
         <select
           id="timezone"
           className={inputClass(Boolean(errors.timezone))}

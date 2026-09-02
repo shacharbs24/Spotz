@@ -8,7 +8,11 @@ import { SignUp } from "@clerk/nextjs";
  */
 export default function SignUpPage() {
   return (
-    <main className="flex flex-1 items-center justify-center bg-surface px-6 py-16">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex flex-1 items-center justify-center bg-surface px-6 py-16"
+    >
       <SignUp />
     </main>
   );

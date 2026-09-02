@@ -27,7 +27,11 @@ export default async function Home() {
   const isClient = role === "CLIENT";
 
   return (
-    <main className="relative flex flex-1 flex-col overflow-hidden bg-surface">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="relative flex flex-1 flex-col overflow-hidden bg-surface"
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-owner-soft blur-3xl"

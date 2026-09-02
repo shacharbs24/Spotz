@@ -13,8 +13,9 @@
         "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
         "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
         "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
-        "NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL",
-        "NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL",
+        "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
+        "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
+        "BLOB_READ_WRITE_TOKEN",
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_PHONE_NUMBER_ID",
         "WHATSAPP_API_VERSION",
@@ -30,6 +31,9 @@
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    "test": {
+      "dependsOn": ["^test"]
     },
     "dev": {
       "cache": false,

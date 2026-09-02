@@ -1,4 +1,4 @@
-import { eq, asc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
@@ -75,7 +75,12 @@ export const servicesRouter = router({
     return db
       .select()
       .from(tables.services)
-      .where(eq(tables.services.businessId, business.id))
+      .where(
+        and(
+          eq(tables.services.businessId, business.id),
+          eq(tables.services.isActive, true),
+        ),
+      )
       .orderBy(asc(tables.services.createdAt));
   }),
 
@@ -124,7 +129,23 @@ export const servicesRouter = router({
       const business = await requireOwnerBusiness(ctx.clerkUserId);
       await requireOwnedService(input.id, business.id);
 
+      const [referencedAppointment] = await db
+        .select({ id: tables.appointments.id })
+        .from(tables.appointments)
+        .where(eq(tables.appointments.serviceId, input.id))
+        .limit(1);
+
+      if (referencedAppointment) {
+        // Preserve the service row for historical appointments while removing it
+        // from both the owner manager and the public booking page.
+        await db
+          .update(tables.services)
+          .set({ isActive: false })
+          .where(eq(tables.services.id, input.id));
+        return { id: input.id, archived: true };
+      }
+
       await db.delete(tables.services).where(eq(tables.services.id, input.id));
-      return { id: input.id };
+      return { id: input.id, archived: false };
     }),
 });

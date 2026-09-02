@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createReviewSchema } from "@spotz/api/schemas/review";
 import { z } from "zod";
@@ -31,8 +31,8 @@ export function ReviewForm({ appointmentId, onClose }: ReviewFormProps) {
 
   const {
     register,
+    control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<ReviewFormValues>({
@@ -40,7 +40,7 @@ export function ReviewForm({ appointmentId, onClose }: ReviewFormProps) {
     defaultValues: { rating: 0, comment: "" },
   });
 
-  const rating = watch("rating");
+  const rating = useWatch({ control, name: "rating" });
 
   return (
     <form

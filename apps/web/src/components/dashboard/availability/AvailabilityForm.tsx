@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   useForm,
   useFieldArray,
+  useWatch,
   type Control,
   type UseFormRegister,
 } from "react-hook-form";
@@ -65,7 +66,6 @@ export function AvailabilityForm() {
     control,
     register,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<AvailabilityFormValues>({
     resolver: zodResolver(availabilityFormSchema),
@@ -83,6 +83,7 @@ export function AvailabilityForm() {
       : undefined,
   });
   const { fields } = useFieldArray({ control, name: "days" });
+  const watchedDays = useWatch({ control, name: "days" });
 
   if (businessQuery.isLoading || availabilityQuery.isLoading) {
     return <FormSkeleton />;
@@ -91,8 +92,6 @@ export function AvailabilityForm() {
   if (businessQuery.data === null) {
     return <NoBusinessNotice />;
   }
-
-  const watchedDays = watch("days");
 
   const onSubmit = (values: AvailabilityFormValues) => {
     update.mutate({

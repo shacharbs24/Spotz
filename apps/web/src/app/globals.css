@@ -22,8 +22,8 @@
   --color-pending: oklch(67% 0.13 70); /* amber — pending */
   --color-pending-soft: oklch(95% 0.05 75);
 
-  --shadow-soft: 0 1px 2px oklch(24% 0.03 300 / 0.04),
-    0 12px 32px oklch(24% 0.03 300 / 0.08);
+  --shadow-soft:
+    0 1px 2px oklch(24% 0.03 300 / 0.04), 0 12px 32px oklch(24% 0.03 300 / 0.08);
 
   --font-sans: var(--font-heebo);
 }
@@ -32,6 +32,40 @@ body {
   background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-heebo), system-ui, sans-serif;
+}
+
+.skip-link {
+  position: fixed;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  z-index: 100;
+  translate: 0 -200%;
+  border-radius: 0.75rem;
+  background: var(--color-ink);
+  color: var(--color-surface-raised);
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+  transition: translate 150ms ease;
+}
+
+.skip-link:focus-visible {
+  translate: 0;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid oklch(48% 0.2 260);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 /* Kill the double-tap-to-zoom gesture on interactive controls so a single tap

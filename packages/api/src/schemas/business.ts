@@ -6,54 +6,57 @@ import { z } from "zod";
  * reuse it for React Hook Form validation without pulling server code into the
  * browser bundle.
  */
-export const businessInputSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "שם העסק חייב להכיל לפחות 2 תווים")
-    .max(120, "שם העסק ארוך מדי"),
-  // Public URL segment: /b/[slug]. Lowercased, alphanumeric + single hyphens.
-  slug: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .min(2, "הכתובת חייבת להכיל לפחות 2 תווים")
-    .max(60, "הכתובת ארוכה מדי")
-    .regex(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-      "אותיות אנגליות קטנות, ספרות ומקפים בלבד (ללא רווחים)",
-    ),
-  timezone: z.string().min(1, "יש לבחור אזור זמן"),
-  // Branding — optional. Empty input is allowed and normalized to null.
-  description: z.string().trim().max(600, "התיאור ארוך מדי").optional(),
-  // Image is now a hosted URL (Vercel Blob), never inline base64. Reject data:
-  // URIs so the DB never stores image bytes again.
-  imageUrl: z
-    .string()
-    .trim()
-    .max(2048, "כתובת התמונה ארוכה מדי")
-    .refine((v) => v === "" || /^https?:\/\//.test(v), "פורמט תמונה לא נתמך")
-    .optional()
-    .or(z.literal("")),
-  // Physical location — optional, free-text Hebrew. Empty input is allowed and
-  // normalized to null in the mutation.
-  city: z.string().trim().max(80, "שם העיר ארוך מדי").optional(),
-  address: z.string().trim().max(200, "הכתובת ארוכה מדי").optional(),
-  // --- Booking window ---
-  autoOpenCalendar: z.boolean(),
-  autoOpenDays: z.coerce
-    .number()
-    .int("מספר ימים שלם")
-    .min(1, "לפחות יום אחד")
-    .max(365, "עד 365 ימים"),
-  manualOpenUntil: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "תאריך לא תקין")
-    .optional()
-    .or(z.literal("")),
-}).refine(
-  (d) => d.autoOpenCalendar || Boolean(d.manualOpenUntil),
-  { message: "בחרו תאריך לסגירת היומן", path: ["manualOpenUntil"] },
-);
+export const businessInputSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "שם העסק חייב להכיל לפחות 2 תווים")
+      .max(120, "שם העסק ארוך מדי"),
+    // Public URL segment: /b/[slug]. Lowercased, alphanumeric + single hyphens.
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(2, "הכתובת חייבת להכיל לפחות 2 תווים")
+      .max(60, "הכתובת ארוכה מדי")
+      .regex(
+        /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+        "אותיות אנגליות קטנות, ספרות ומקפים בלבד (ללא רווחים)",
+      ),
+    timezone: z.string().min(1, "יש לבחור אזור זמן"),
+    // Branding — optional. Empty input is allowed and normalized to null.
+    description: z.string().trim().max(600, "התיאור ארוך מדי").optional(),
+    // Image is now a hosted URL (Vercel Blob), never inline base64. Reject data:
+    // URIs so the DB never stores image bytes again.
+    imageUrl: z
+      .string()
+      .trim()
+      .max(2048, "כתובת התמונה ארוכה מדי")
+      .refine((v) => v === "" || /^https?:\/\//.test(v), "פורמט תמונה לא נתמך")
+      .optional()
+      .or(z.literal("")),
+    // Physical location — optional, free-text Hebrew. Empty input is allowed and
+    // normalized to null in the mutation.
+    city: z.string().trim().max(80, "שם העיר ארוך מדי").optional(),
+    address: z.string().trim().max(200, "הכתובת ארוכה מדי").optional(),
+    phone: z.string().trim().max(30, "מספר הטלפון ארוך מדי").optional(),
+    // --- Booking window ---
+    autoOpenCalendar: z.boolean(),
+    autoOpenDays: z.coerce
+      .number()
+      .int("מספר ימים שלם")
+      .min(1, "לפחות יום אחד")
+      .max(365, "עד 365 ימים"),
+    manualOpenUntil: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "תאריך לא תקין")
+      .optional()
+      .or(z.literal("")),
+  })
+  .refine((d) => d.autoOpenCalendar || Boolean(d.manualOpenUntil), {
+    message: "בחרו תאריך לסגירת היומן",
+    path: ["manualOpenUntil"],
+  });
 
 export type BusinessInput = z.infer<typeof businessInputSchema>;

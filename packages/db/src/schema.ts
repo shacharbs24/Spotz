@@ -42,29 +42,40 @@ export const users = pgTable("users", {
   fullName: text("full_name"),
   phone: text("phone"),
   role: userRole("role").notNull().default("CLIENT"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 // --- Businesses ---
-export const businesses = pgTable("businesses", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  ownerId: uuid("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(), // לכתובת ציבורית: /b/[slug]
-  description: text("description"),
-  imageUrl: text("image_url"), // לוגו/תמונת קאבר — URL חיצוני (R2 בהמשך)
-  phone: text("phone"),
-  city: text("city"), // עיר — נשמר כ-UTF-8, תומך בעברית
-  address: text("address"), // כתובת מלאה — תומך בעברית
-  timezone: text("timezone").notNull().default("Asia/Jerusalem"),
-  // --- Booking window ---
-  autoOpenCalendar: boolean("auto_open_calendar").notNull().default(true),
-  autoOpenDays: integer("auto_open_days").notNull().default(14), // today + N days
-  manualOpenUntil: date("manual_open_until"), // hard cap when auto is off (nullable)
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const businesses = pgTable(
+  "businesses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(), // לכתובת ציבורית: /b/[slug]
+    description: text("description"),
+    imageUrl: text("image_url"), // לוגו/תמונת קאבר — URL חיצוני (R2 בהמשך)
+    phone: text("phone"),
+    city: text("city"), // עיר — נשמר כ-UTF-8, תומך בעברית
+    address: text("address"), // כתובת מלאה — תומך בעברית
+    timezone: text("timezone").notNull().default("Asia/Jerusalem"),
+    // --- Booking window ---
+    autoOpenCalendar: boolean("auto_open_calendar").notNull().default(true),
+    autoOpenDays: integer("auto_open_days").notNull().default(14), // today + N days
+    manualOpenUntil: date("manual_open_until"), // hard cap when auto is off (nullable)
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    // Product invariant: one managed business per owner account.
+    uniqOwner: uniqueIndex("uq_business_owner").on(t.ownerId),
+  }),
+);
 
 // --- Business Photos (URLs מ-R2) ---
 export const businessPhotos = pgTable("business_photos", {
@@ -92,7 +103,9 @@ export const services = pgTable("services", {
   // approval; when false they are auto-confirmed (CONFIRMED) on creation.
   // Defaults to manual approval to preserve the pre-feature booking behavior.
   requiresApproval: boolean("requires_approval").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 // --- Working Hours (שורה לכל יום בשבוע) ---
@@ -128,14 +141,21 @@ export const clients = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     // Linked authenticated user, when the booking was made while signed in.
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     fullName: text("full_name").notNull(),
     phone: text("phone").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => ({
-    // לקוח חוזר מזוהה לפי (עסק, טלפון) — משמש ל-upsert בעת הזמנה
-    uniqPhone: uniqueIndex("uq_client_business_phone").on(t.businessId, t.phone),
+    // Authenticated booking contacts are stable per (business, user). Phone is
+    // contact data, not identity: two accounts may legitimately share a number.
+    uniqUser: uniqueIndex("uq_client_business_user")
+      .on(t.businessId, t.userId)
+      .where(sql`${t.userId} is not null`),
   }),
 );
 
@@ -156,12 +176,22 @@ export const appointments = pgTable(
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     status: appointmentStatus("status").notNull().default("PENDING"),
+    // Separate bearer secret for the public confirmation page. Appointment ids
+    // may appear elsewhere and must not grant confirm/cancel permission.
+    confirmationToken: uuid("confirmation_token")
+      .defaultRandom()
+      .notNull()
+      .unique(),
     // When the client confirmed arrival via the WhatsApp reminder link. Tracked
     // separately from `status` so it stays distinct from owner/auto approval.
-    arrivalConfirmedAt: timestamp("arrival_confirmed_at", { withTimezone: true }),
+    arrivalConfirmedAt: timestamp("arrival_confirmed_at", {
+      withTimezone: true,
+    }),
     priceCentsSnapshot: integer("price_cents_snapshot").notNull(), // נעילת מחיר בזמן ההזמנה
     notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => ({
     // האינדקס החם של לוח היומן בדאשבורד
@@ -180,7 +210,9 @@ export const blockedPeriods = pgTable(
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     reason: text("reason"), // הערה חופשית — "חופשה", "פגישה" וכו'
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => ({
     byBusinessTime: index("idx_blocked_business_time").on(
@@ -207,12 +239,20 @@ export const appointmentMessages = pgTable(
     channel: messageChannel("channel").notNull().default("WHATSAPP"),
     type: messageType("type").notNull().default("REMINDER_24H"),
     status: messageStatus("status").notNull().default("PENDING"),
+    // Existing rows represent at least one provider attempt. Failed sends may
+    // be reclaimed up to the bounded retry limit by the cron runner.
+    attemptCount: integer("attempt_count").notNull().default(1),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     providerMessageId: text("provider_message_id"),
     errorMessage: text("error_message"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => ({
     // לכל הזמנה הודעה אחת מכל סוג — מונע שליחה כפולה
@@ -249,8 +289,12 @@ export const reviews = pgTable(
     // reviews fall back to the client's name.
     reviewerName: text("reviewer_name"),
     isVisible: boolean("is_visible").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => ({
     // חוות דעת אחת לכל תור

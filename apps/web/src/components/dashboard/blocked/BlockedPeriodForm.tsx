@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createBlockedPeriodSchema,
@@ -29,8 +29,8 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
 
   const {
     register,
+    control,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<CreateBlockedPeriodInput>({
     resolver: zodResolver(createBlockedPeriodSchema),
@@ -44,7 +44,7 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
     },
   });
 
-  const allDay = watch("allDay");
+  const allDay = useWatch({ control, name: "allDay" });
 
   return (
     <form
@@ -62,7 +62,11 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
 
       {allDay ? (
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="מתאריך" htmlFor="startDate" error={errors.startDate?.message}>
+          <Field
+            label="מתאריך"
+            htmlFor="startDate"
+            error={errors.startDate?.message}
+          >
             <input
               id="startDate"
               type="date"
@@ -88,7 +92,11 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
         </div>
       ) : (
         <>
-          <Field label="תאריך" htmlFor="startDate" error={errors.startDate?.message}>
+          <Field
+            label="תאריך"
+            htmlFor="startDate"
+            error={errors.startDate?.message}
+          >
             <input
               id="startDate"
               type="date"
@@ -98,7 +106,11 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
             />
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="משעה" htmlFor="startTime" error={errors.startTime?.message}>
+            <Field
+              label="משעה"
+              htmlFor="startTime"
+              error={errors.startTime?.message}
+            >
               <input
                 id="startTime"
                 type="time"
@@ -107,7 +119,11 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
                 {...register("startTime")}
               />
             </Field>
-            <Field label="עד שעה" htmlFor="endTime" error={errors.endTime?.message}>
+            <Field
+              label="עד שעה"
+              htmlFor="endTime"
+              error={errors.endTime?.message}
+            >
               <input
                 id="endTime"
                 type="time"

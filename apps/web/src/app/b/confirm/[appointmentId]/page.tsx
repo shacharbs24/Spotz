@@ -4,19 +4,30 @@ import { ConfirmActions } from "@/components/public/ConfirmActions";
 
 interface ConfirmPageProps {
   params: Promise<{ appointmentId: string }>;
+  searchParams: Promise<{ token?: string }>;
 }
 
 export default async function ConfirmAppointmentPage({
   params,
+  searchParams,
 }: ConfirmPageProps) {
-  const { appointmentId } = await params;
+  const [{ appointmentId }, { token }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+
+  if (!token) {
+    notFound();
+  }
 
   const caller = await getServerCaller();
-  let details: Awaited<
-    ReturnType<typeof caller.public.getAppointmentDetails>
-  > = null;
+  let details: Awaited<ReturnType<typeof caller.public.getAppointmentDetails>> =
+    null;
   try {
-    details = await caller.public.getAppointmentDetails({ appointmentId });
+    details = await caller.public.getAppointmentDetails({
+      appointmentId,
+      token,
+    });
   } catch {
     // Invalid id format etc. → treat as not found.
     details = null;
@@ -27,7 +38,11 @@ export default async function ConfirmAppointmentPage({
   }
 
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-surface px-6 py-16">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-surface px-6 py-16"
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[40rem] -translate-x-1/2 rounded-full bg-owner-soft blur-3xl"
@@ -57,6 +72,7 @@ export default async function ConfirmAppointmentPage({
 
           <ConfirmActions
             appointmentId={details.id}
+            token={token}
             initialStatus={details.status}
             initialArrivalConfirmed={details.arrivalConfirmed}
           />

@@ -1,4 +1,4 @@
-import { eq, and, asc, gte, gt, lt } from "drizzle-orm";
+import { eq, and, asc, gte, gt, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
@@ -11,6 +11,23 @@ import { normalizeIsraeliPhone } from "../lib/phone";
 function timeToMinutes(time: string): number {
   const [hours, mins] = time.split(":").map(Number);
   return hours * 60 + mins;
+}
+
+/** Finds a PostgreSQL error code through the small wrapper chain used by ORM drivers. */
+function hasDatabaseErrorCode(error: unknown, expectedCode: string): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (!current || typeof current !== "object") return false;
+    if (
+      "code" in current &&
+      typeof current.code === "string" &&
+      current.code === expectedCode
+    ) {
+      return true;
+    }
+    current = "cause" in current ? current.cause : null;
+  }
+  return false;
 }
 
 /** Loads public business fields (incl. booking window) by id, or throws NOT_FOUND. */
@@ -283,7 +300,8 @@ export const publicRouter = router({
       }
       // Onboarding is required before booking (name + phone on the profile).
       // Normalize the profile phone to the canonical E.164-without-plus form so
-      // it's stored consistently and drives the (businessId, phone) client key.
+      // it's stored consistently as contact data on the (businessId, userId)
+      // booking-contact row.
       // An unnormalizable legacy phone fails this gate → "complete your profile".
       const fullName = user.fullName?.trim();
       const phone = normalizeIsraeliPhone(user.phone);
@@ -341,50 +359,76 @@ export const publicRouter = router({
         });
       }
 
-      const appointment = await db.transaction(async (tx) => {
-        // Upsert the per-business client contact from the user's profile,
-        // keeping it linked to their account for the portal.
-        const [client] = await tx
-          .insert(tables.clients)
-          .values({
-            businessId: business.id,
-            userId: linkedUserId,
-            fullName,
-            phone,
-          })
-          .onConflictDoUpdate({
-            target: [tables.clients.businessId, tables.clients.phone],
-            set: { fullName, userId: linkedUserId },
-          })
-          .returning();
+      let appointment: {
+        id: string;
+        status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+      };
+      try {
+        appointment = await db.transaction(async (tx) => {
+          // Keep one booking contact per (business, authenticated user). Phone is
+          // mutable contact data and must never transfer appointment ownership.
+          const [client] = await tx
+            .insert(tables.clients)
+            .values({
+              businessId: business.id,
+              userId: linkedUserId,
+              fullName,
+              phone,
+            })
+            .onConflictDoUpdate({
+              target: [tables.clients.businessId, tables.clients.userId],
+              targetWhere: sql`${tables.clients.userId} is not null`,
+              set: { fullName, phone },
+            })
+            .returning();
 
-        const [created] = await tx
-          .insert(tables.appointments)
-          .values({
-            businessId: business.id,
-            serviceId: service.id,
-            clientId: client.id,
-            startAt: startAt.toJSDate(),
-            endAt: endAt.toJSDate(),
-            // Auto-confirm unless the service requires manual owner approval.
-            status: service.requiresApproval ? "PENDING" : "CONFIRMED",
-            priceCentsSnapshot: service.priceCents,
-          })
-          .returning({ id: tables.appointments.id });
+          const [created] = await tx
+            .insert(tables.appointments)
+            .values({
+              businessId: business.id,
+              serviceId: service.id,
+              clientId: client.id,
+              startAt: startAt.toJSDate(),
+              endAt: endAt.toJSDate(),
+              // Auto-confirm unless the service requires manual owner approval.
+              status: service.requiresApproval ? "PENDING" : "CONFIRMED",
+              priceCentsSnapshot: service.priceCents,
+            })
+            .returning({
+              id: tables.appointments.id,
+              status: tables.appointments.status,
+            });
 
-        return created;
-      });
+          return created;
+        });
+      } catch (error) {
+        // The exclusion constraint is the final concurrency-safe guard. Two
+        // clients may both see a slot before either insert commits; only one wins.
+        if (hasDatabaseErrorCode(error, "23P01")) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "המועד נתפס כרגע על ידי לקוח אחר. בחרו מועד חדש.",
+          });
+        }
+        throw error;
+      }
 
       return {
         id: appointment.id,
         date: input.date,
         time: input.time,
+        status: appointment.status,
       };
     }),
 
-  /** Appointment details for the SMS confirmation page (no auth, by id). */
+  /** Appointment details for the confirmation page, guarded by its bearer token. */
   getAppointmentDetails: publicProcedure
-    .input(z.object({ appointmentId: z.string().uuid() }))
+    .input(
+      z.object({
+        appointmentId: z.string().uuid(),
+        token: z.string().uuid(),
+      }),
+    )
     .query(async ({ input }) => {
       const [row] = await db
         .select({
@@ -412,7 +456,12 @@ export const publicRouter = router({
           tables.businesses,
           eq(tables.appointments.businessId, tables.businesses.id),
         )
-        .where(eq(tables.appointments.id, input.appointmentId));
+        .where(
+          and(
+            eq(tables.appointments.id, input.appointmentId),
+            eq(tables.appointments.confirmationToken, input.token),
+          ),
+        );
 
       if (!row) return null;
 
@@ -440,13 +489,13 @@ export const publicRouter = router({
     }),
 
   /**
-   * Client-facing status update from the SMS link. Only allows the
-   * PENDING → CONFIRMED / CANCELLED transition.
+   * Client-facing status update from the private confirmation link.
    */
   updateAppointmentStatusPublic: publicProcedure
     .input(
       z.object({
         appointmentId: z.string().uuid(),
+        token: z.string().uuid(),
         status: z.enum(["CONFIRMED", "CANCELLED"]),
       }),
     )
@@ -457,7 +506,12 @@ export const publicRouter = router({
           status: tables.appointments.status,
         })
         .from(tables.appointments)
-        .where(eq(tables.appointments.id, input.appointmentId));
+        .where(
+          and(
+            eq(tables.appointments.id, input.appointmentId),
+            eq(tables.appointments.confirmationToken, input.token),
+          ),
+        );
 
       if (!appointment) {
         throw new TRPCError({ code: "NOT_FOUND", message: "התור לא נמצא." });
@@ -484,7 +538,12 @@ export const publicRouter = router({
             ? { status: "CONFIRMED", arrivalConfirmedAt: new Date() }
             : { status: "CANCELLED" },
         )
-        .where(eq(tables.appointments.id, input.appointmentId))
+        .where(
+          and(
+            eq(tables.appointments.id, input.appointmentId),
+            eq(tables.appointments.confirmationToken, input.token),
+          ),
+        )
         .returning({
           id: tables.appointments.id,
           status: tables.appointments.status,

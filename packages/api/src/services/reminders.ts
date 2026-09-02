@@ -1,13 +1,21 @@
-import { eq, and, or, gte, lt, asc } from "drizzle-orm";
+import { eq, and, or, gt, lt, lte, isNull, asc, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db, tables } from "@spotz/db";
 import { normalizeIsraeliPhone } from "../lib/phone";
 import { sendWhatsAppReminder, WhatsAppApiError } from "./whatsapp";
+import {
+  MAX_SEND_ATTEMPTS,
+  buildConfirmationUrl,
+  getNextReminderRetryAt,
+  getReminderWindowEnd,
+  isReminderRetryEligible,
+  normalizeAppBaseUrl,
+} from "./reminder-policy";
 
 /**
- * 24h WhatsApp reminders for appointments happening "tomorrow" in each
- * business's own timezone. Deduplicated via `appointment_messages`
- * (unique appointmentId+type). Server-only; called by the cron route.
+ * WhatsApp reminders for appointments entering the next-24-hours window.
+ * Deduplicated via `appointment_messages` (unique appointmentId+type), with a
+ * bounded, atomic retry policy for provider failures. Server-only.
  */
 
 export type ReminderOutcome =
@@ -26,7 +34,7 @@ export interface ReminderResult {
   date: string;
   time: string;
   phone: string | null; // normalized recipient, null when invalid
-  confirmUrl: string; // ${APP_BASE_URL}/b/confirm/${appointmentId} — sent in the template
+  confirmUrl: string; // appointment path + private token — sent in the template
   outcome: ReminderOutcome;
   reason?: string;
 }
@@ -39,6 +47,7 @@ export interface ReminderRunSummary {
   failed: number;
   skipped: number;
   duplicates: number;
+  retried: number;
   results: ReminderResult[];
 }
 
@@ -48,16 +57,17 @@ export async function sendDueAppointmentReminders(
   opts: { dryRun?: boolean } = {},
 ): Promise<ReminderRunSummary> {
   const dryRun = opts.dryRun ?? false;
-  const appBaseUrl = process.env.APP_BASE_URL ?? "";
+  const appBaseUrl = normalizeAppBaseUrl(process.env.APP_BASE_URL);
 
-  // Broad UTC window guaranteed to contain "tomorrow" in any timezone; we then
-  // filter precisely per-business below. Past appointments are excluded.
+  // Every appointment enters the due window exactly once at startAt - 24h.
+  // Hourly runs and the unique message row make catch-up safe after a missed run.
   const now = new Date();
-  const windowEnd = DateTime.now().plus({ days: 3 }).toJSDate();
+  const windowEnd = getReminderWindowEnd(now);
 
   const rows = await db
     .select({
       appointmentId: tables.appointments.id,
+      confirmationToken: tables.appointments.confirmationToken,
       businessId: tables.appointments.businessId,
       clientId: tables.appointments.clientId,
       startAt: tables.appointments.startAt,
@@ -67,6 +77,9 @@ export async function sendDueAppointmentReminders(
       serviceName: tables.services.name,
       clientName: tables.clients.fullName,
       clientPhone: tables.clients.phone,
+      messageStatus: tables.appointmentMessages.status,
+      messageAttemptCount: tables.appointmentMessages.attemptCount,
+      messageNextAttemptAt: tables.appointmentMessages.nextAttemptAt,
     })
     .from(tables.appointments)
     .innerJoin(
@@ -81,14 +94,21 @@ export async function sendDueAppointmentReminders(
       tables.clients,
       eq(tables.appointments.clientId, tables.clients.id),
     )
+    .leftJoin(
+      tables.appointmentMessages,
+      and(
+        eq(tables.appointmentMessages.appointmentId, tables.appointments.id),
+        eq(tables.appointmentMessages.type, REMINDER_TYPE),
+      ),
+    )
     .where(
       and(
         or(
           eq(tables.appointments.status, "PENDING"),
           eq(tables.appointments.status, "CONFIRMED"),
         ),
-        gte(tables.appointments.startAt, now),
-        lt(tables.appointments.startAt, windowEnd),
+        gt(tables.appointments.startAt, now),
+        lte(tables.appointments.startAt, windowEnd),
       ),
     )
     .orderBy(asc(tables.appointments.startAt));
@@ -101,16 +121,13 @@ export async function sendDueAppointmentReminders(
     failed: 0,
     skipped: 0,
     duplicates: 0,
+    retried: 0,
     results: [],
   };
 
   for (const row of rows) {
     const tz = row.timezone;
     const apptLocal = DateTime.fromJSDate(row.startAt).setZone(tz);
-    const tomorrow = DateTime.now().setZone(tz).plus({ days: 1 });
-    // Only appointments whose local calendar day is tomorrow.
-    if (!apptLocal.hasSame(tomorrow, "day")) continue;
-
     summary.considered += 1;
 
     const localized = apptLocal.setLocale("he");
@@ -126,7 +143,11 @@ export async function sendDueAppointmentReminders(
     const skipReason = row.clientPhone?.trim()
       ? "invalid phone format"
       : "missing phone";
-    const confirmUrl = `${appBaseUrl}/b/confirm/${row.appointmentId}`;
+    const confirmUrl = buildConfirmationUrl(
+      appBaseUrl,
+      row.appointmentId,
+      row.confirmationToken,
+    );
 
     const base = {
       appointmentId: row.appointmentId,
@@ -139,8 +160,28 @@ export async function sendDueAppointmentReminders(
       confirmUrl,
     };
 
-    // --- Dry run: report intent, touch nothing. ---
+    const existingRetryEligible = isReminderRetryEligible(
+      {
+        status: row.messageStatus,
+        attemptCount: row.messageAttemptCount,
+        nextAttemptAt: row.messageNextAttemptAt,
+      },
+      now,
+    );
+
+    // --- Dry run: report intent accurately, touch nothing. ---
     if (dryRun) {
+      if (row.messageStatus && !existingRetryEligible) {
+        summary.duplicates += 1;
+        summary.results.push({
+          ...base,
+          outcome: "ALREADY_HANDLED",
+          reason: `message status: ${row.messageStatus}`,
+        });
+        continue;
+      }
+      if (existingRetryEligible) summary.retried += 1;
+
       if (!phone) {
         summary.skipped += 1;
         summary.results.push({
@@ -155,7 +196,7 @@ export async function sendDueAppointmentReminders(
     }
 
     // --- Dedup: claim the (appointment, type) slot. ---
-    const [claimed] = await db
+    const [inserted] = await db
       .insert(tables.appointmentMessages)
       .values({
         appointmentId: row.appointmentId,
@@ -164,6 +205,7 @@ export async function sendDueAppointmentReminders(
         channel: "WHATSAPP",
         type: REMINDER_TYPE,
         status: "PENDING",
+        attemptCount: 1,
         scheduledFor: apptLocal.minus({ hours: 24 }).toJSDate(),
       })
       .onConflictDoNothing({
@@ -172,11 +214,54 @@ export async function sendDueAppointmentReminders(
           tables.appointmentMessages.type,
         ],
       })
-      .returning({ id: tables.appointmentMessages.id });
+      .returning({
+        id: tables.appointmentMessages.id,
+        attemptCount: tables.appointmentMessages.attemptCount,
+      });
+
+    let claimed = inserted;
+    if (!claimed) {
+      // A previous FAILED attempt can be reclaimed atomically when its retry is
+      // due. Concurrent cron runs race on status=FAILED; only one flips it back
+      // to PENDING and receives the row.
+      const [retryClaim] = await db
+        .update(tables.appointmentMessages)
+        .set({
+          status: "PENDING",
+          attemptCount: sql`${tables.appointmentMessages.attemptCount} + 1`,
+          nextAttemptAt: null,
+          errorMessage: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(tables.appointmentMessages.appointmentId, row.appointmentId),
+            eq(tables.appointmentMessages.type, REMINDER_TYPE),
+            eq(tables.appointmentMessages.status, "FAILED"),
+            lt(tables.appointmentMessages.attemptCount, MAX_SEND_ATTEMPTS),
+            or(
+              isNull(tables.appointmentMessages.nextAttemptAt),
+              lte(tables.appointmentMessages.nextAttemptAt, now),
+            ),
+          ),
+        )
+        .returning({
+          id: tables.appointmentMessages.id,
+          attemptCount: tables.appointmentMessages.attemptCount,
+        });
+      claimed = retryClaim;
+      if (claimed) summary.retried += 1;
+    }
 
     if (!claimed) {
       summary.duplicates += 1;
-      summary.results.push({ ...base, outcome: "ALREADY_HANDLED" });
+      summary.results.push({
+        ...base,
+        outcome: "ALREADY_HANDLED",
+        reason: row.messageStatus
+          ? `message status: ${row.messageStatus}`
+          : "message already claimed",
+      });
       continue;
     }
 
@@ -186,6 +271,7 @@ export async function sendDueAppointmentReminders(
         .update(tables.appointmentMessages)
         .set({
           status: "SKIPPED",
+          nextAttemptAt: null,
           errorMessage: skipReason,
           updatedAt: new Date(),
         })
@@ -216,6 +302,8 @@ export async function sendDueAppointmentReminders(
           status: "SENT",
           sentAt: new Date(),
           providerMessageId: messageId,
+          nextAttemptAt: null,
+          errorMessage: null,
           updatedAt: new Date(),
         })
         .where(eq(tables.appointmentMessages.id, claimed.id));
@@ -226,16 +314,24 @@ export async function sendDueAppointmentReminders(
       const code = error instanceof WhatsAppApiError ? error.code : null;
       const rawMessage = error instanceof Error ? error.message : "send failed";
       const reason = code !== null ? `Meta ${code}: ${rawMessage}` : rawMessage;
+      const nextAttemptAt = getNextReminderRetryAt(now, claimed.attemptCount);
       await db
         .update(tables.appointmentMessages)
         .set({
           status: "FAILED",
           errorMessage: reason,
+          nextAttemptAt,
           updatedAt: new Date(),
         })
         .where(eq(tables.appointmentMessages.id, claimed.id));
       summary.failed += 1;
-      summary.results.push({ ...base, outcome: "FAILED", reason });
+      summary.results.push({
+        ...base,
+        outcome: "FAILED",
+        reason: nextAttemptAt
+          ? `${reason}; retry scheduled`
+          : `${reason}; retry limit reached`,
+      });
     }
   }
 

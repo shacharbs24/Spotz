@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, protectedProcedure } from "../trpc";
 import { updateAppointmentStatusSchema } from "../schemas/appointment";
+import { canOwnerSetAppointmentStatus } from "../domain/appointment-status";
 
 const HISTORY_PAGE_SIZE = 15;
 
@@ -98,36 +99,36 @@ export const appointmentsRouter = router({
         )
         .orderBy(asc(tables.appointments.startAt));
 
-    const now = DateTime.now().setZone(business.timezone).toMillis();
+      const now = DateTime.now().setZone(business.timezone).toMillis();
 
-    return rows.map((row) => {
-      const start = DateTime.fromJSDate(row.startAt)
-        .setZone(business.timezone)
-        .setLocale("he");
-      const end = DateTime.fromJSDate(row.endAt).setZone(business.timezone);
+      return rows.map((row) => {
+        const start = DateTime.fromJSDate(row.startAt)
+          .setZone(business.timezone)
+          .setLocale("he");
+        const end = DateTime.fromJSDate(row.endAt).setZone(business.timezone);
 
-      return {
-        id: row.id,
-        status: row.status,
-        priceCentsSnapshot: row.priceCentsSnapshot,
-        clientName: row.clientName,
-        clientPhone: row.clientPhone,
-        serviceName: row.serviceName,
-        date: start.toLocaleString({
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-        }),
-        startTime: start.toFormat("HH:mm"),
-        endTime: end.toFormat("HH:mm"),
-        // Elapsed once the appointment's end time has passed — used to keep past
-        // items out of the dashboard's "today" widget.
-        isPast: end.toMillis() < now,
-        // Client tapped "אני מגיע" on the WhatsApp reminder link.
-        arrivalConfirmed: row.arrivalConfirmedAt !== null,
-      };
-    });
-  }),
+        return {
+          id: row.id,
+          status: row.status,
+          priceCentsSnapshot: row.priceCentsSnapshot,
+          clientName: row.clientName,
+          clientPhone: row.clientPhone,
+          serviceName: row.serviceName,
+          date: start.toLocaleString({
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          }),
+          startTime: start.toFormat("HH:mm"),
+          endTime: end.toFormat("HH:mm"),
+          // Elapsed once the appointment's end time has passed — used to keep past
+          // items out of the dashboard's "today" widget.
+          isPast: end.toMillis() < now,
+          // Client tapped "אני מגיע" on the WhatsApp reminder link.
+          arrivalConfirmed: row.arrivalConfirmedAt !== null,
+        };
+      });
+    }),
 
   /**
    * Appointment history for the owner's business: appointments that are already
@@ -223,12 +224,23 @@ export const appointmentsRouter = router({
         .select({
           id: tables.appointments.id,
           businessId: tables.appointments.businessId,
+          status: tables.appointments.status,
         })
         .from(tables.appointments)
         .where(eq(tables.appointments.id, input.id));
 
       if (!appointment || appointment.businessId !== business.id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "התור לא נמצא." });
+      }
+
+      if (appointment.status === input.status) {
+        return { id: appointment.id, status: appointment.status };
+      }
+      if (!canOwnerSetAppointmentStatus(appointment.status, input.status)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "לא ניתן לבצע את שינוי הסטטוס הזה.",
+        });
       }
 
       const [updated] = await db

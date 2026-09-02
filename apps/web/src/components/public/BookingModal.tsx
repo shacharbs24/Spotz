@@ -21,7 +21,7 @@ interface DayOption {
   dayMonth: string;
 }
 
-const MAX_DAYS_SHOWN = 60; // UI safety cap
+const MAX_DAYS_SHOWN = 366; // schema allows today + up to 365 days
 
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -37,7 +37,11 @@ function buildDays(maxDate: string): DayOption[] {
   const today = new Date();
   const days: DayOption[] = [];
   for (let i = 0; i < MAX_DAYS_SHOWN; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    const d = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + i,
+    );
     const value = toDateStr(d);
     if (value > maxDate) break; // beyond the booking window
     days.push({
@@ -70,9 +74,11 @@ export function BookingModal({
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState<{ date: string; time: string } | null>(
-    null,
-  );
+  const [confirmed, setConfirmed] = useState<{
+    date: string;
+    time: string;
+    status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  } | null>(null);
 
   const slotsQuery = trpc.public.getAvailableSlots.useQuery(
     { businessId, serviceId: service.id, date: selectedDate ?? "" },
@@ -80,7 +86,8 @@ export function BookingModal({
   );
 
   const createAppointment = trpc.public.createAppointment.useMutation({
-    onSuccess: (res) => setConfirmed({ date: res.date, time: res.time }),
+    onSuccess: (res) =>
+      setConfirmed({ date: res.date, time: res.time, status: res.status }),
     onError: () => {
       // A taken slot may have changed — refresh availability.
       void utils.public.getAvailableSlots.invalidate();
@@ -108,20 +115,34 @@ export function BookingModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={confirmed ? "התור נקבע!" : "קביעת תור"}
+      title={
+        confirmed
+          ? confirmed.status === "CONFIRMED"
+            ? "התור אושר!"
+            : "הבקשה נשלחה!"
+          : "קביעת תור"
+      }
     >
       {confirmed ? (
         <div className="flex flex-col items-center gap-4 py-4 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-owner-soft text-2xl text-owner">
             ✓
           </div>
-          <h3 className="text-lg font-semibold text-ink">התור נקבע בהצלחה!</h3>
+          <h3 className="text-lg font-semibold text-ink">
+            {confirmed.status === "CONFIRMED"
+              ? "התור נקבע ואושר בהצלחה!"
+              : "בקשת התור נשלחה בהצלחה!"}
+          </h3>
           <p className="text-sm leading-6 text-ink-muted">
             {service.name}
             <br />
             {formatDateHe(confirmed.date)} בשעה {confirmed.time}
           </p>
-          <p className="text-xs text-ink-muted">סטטוס: ממתין לאישור העסק</p>
+          <p className="text-xs text-ink-muted">
+            {confirmed.status === "CONFIRMED"
+              ? "סטטוס: מאושר"
+              : "סטטוס: ממתין לאישור העסק"}
+          </p>
           <button
             type="button"
             onClick={onClose}
@@ -133,7 +154,9 @@ export function BookingModal({
       ) : (
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
-            <span className="min-w-0 break-words font-medium text-ink">{service.name}</span>
+            <span className="min-w-0 break-words font-medium text-ink">
+              {service.name}
+            </span>
             <span className="text-sm font-semibold text-owner">
               {formatPrice(service.priceCents, service.currency)}
             </span>
@@ -206,7 +229,9 @@ export function BookingModal({
                   disabled={createAppointment.isPending}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-owner px-6 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {createAppointment.isPending ? "קובע תור…" : "אישור וקביעת תור"}
+                  {createAppointment.isPending
+                    ? "קובע תור…"
+                    : "אישור וקביעת תור"}
                 </button>
               </div>
             </Step>

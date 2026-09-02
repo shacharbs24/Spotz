@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "@/trpc/client";
@@ -74,8 +74,8 @@ function ReviewFields({
 
   const {
     register,
+    control,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
@@ -83,11 +83,13 @@ function ReviewFields({
     defaultValues: { rating: 0, reviewerName: defaultName, comment: "" },
   });
 
-  const rating = watch("rating");
+  const rating = useWatch({ control, name: "rating" });
 
   return (
     <form
-      onSubmit={handleSubmit((values) => create.mutate({ businessId, ...values }))}
+      onSubmit={handleSubmit((values) =>
+        create.mutate({ businessId, ...values }),
+      )}
       className="flex flex-col gap-5"
     >
       <div className="flex flex-col gap-1.5">

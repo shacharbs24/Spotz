@@ -13,9 +13,17 @@ const DASHBOARD_CARDS: readonly {
 }[] = [
   { label: "העסק שלי", hint: "הגדרת פרטי העסק", href: "/dashboard/business" },
   { label: "שירותים", hint: "ניהול השירותים", href: "/dashboard/services" },
-  { label: "שעות פעילות", hint: "הגדרת שעות הפעילות", href: "/dashboard/availability" },
+  {
+    label: "שעות פעילות",
+    hint: "הגדרת שעות הפעילות",
+    href: "/dashboard/availability",
+  },
   { label: "תורים", hint: "צפייה בכל התורים", href: "/dashboard/appointments" },
-  { label: "היסטוריית תורים", hint: "תורים שעברו וחיפוש לקוח", href: "/dashboard/history" },
+  {
+    label: "היסטוריית תורים",
+    hint: "תורים שעברו וחיפוש לקוח",
+    href: "/dashboard/history",
+  },
   { label: "חסימות ביומן", hint: "חופשות וחסימות", href: "/dashboard/blocked" },
 ];
 
@@ -42,7 +50,11 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10"
+    >
       <header className="flex items-center justify-between border-b border-line pb-5">
         <Link href="/" className="text-lg font-bold tracking-tight text-ink">
           Spotz<span className="text-owner">.</span>

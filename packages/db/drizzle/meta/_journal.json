@@ -113,6 +113,20 @@
       "when": 1783171688017,
       "tag": "0015_stale_brood",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1787574495652,
+      "tag": "0016_secure-bookings",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787575476396,
+      "tag": "0017_reminder-retries",
+      "breakpoints": true
     }
   ]
 }

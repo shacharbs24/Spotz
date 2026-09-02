@@ -10,7 +10,11 @@ export default async function ServicesPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10"
+    >
       <div className="flex flex-col gap-3">
         <nav className="flex items-center gap-2 text-sm text-ink-muted">
           <Link href="/dashboard" className="transition-colors hover:text-ink">
@@ -19,7 +23,9 @@ export default async function ServicesPage() {
           <span aria-hidden="true">/</span>
           <span className="text-ink">שירותים</span>
         </nav>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">השירותים שלי</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">
+          השירותים שלי
+        </h1>
         <p className="text-ink-muted">
           הגדירו את השירותים שאתם מציעים — שם ומחיר. אלו יוצגו ללקוחות בדף
           ההזמנות.

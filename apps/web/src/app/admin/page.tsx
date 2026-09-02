@@ -13,7 +13,12 @@ const STATUS_META: Record<
   COMPLETED: { label: "הושלם", badge: "bg-owner-soft text-owner" },
 };
 
-const STATUS_ORDER = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as const;
+const STATUS_ORDER = [
+  "PENDING",
+  "CONFIRMED",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
 
 /**
  * Loads the admin overview, translating the adminProcedure's FORBIDDEN into
@@ -47,7 +52,11 @@ export default async function AdminPage() {
   ];
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-6 py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-6 py-10"
+    >
       <header className="flex flex-col gap-2 border-b border-line pb-5">
         <p className="text-sm font-medium tracking-wide text-owner">Spotz</p>
         <h1 className="text-3xl font-bold tracking-tight text-ink">
@@ -73,7 +82,9 @@ export default async function AdminPage() {
 
       {/* Appointments by status */}
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold text-ink-muted">תורים לפי סטטוס</h2>
+        <h2 className="text-sm font-semibold text-ink-muted">
+          תורים לפי סטטוס
+        </h2>
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           {STATUS_ORDER.map((status) => (
             <div
@@ -111,7 +122,10 @@ export default async function AdminPage() {
             <tbody>
               {businesses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-8 text-center text-ink-muted">
+                  <td
+                    colSpan={4}
+                    className="px-5 py-8 text-center text-ink-muted"
+                  >
                     אין עדיין עסקים.
                   </td>
                 </tr>

@@ -87,16 +87,22 @@ export async function sendWhatsAppReminder(
     },
   };
 
-  const res = await fetch(`${GRAPH_BASE}/${apiVersion}/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  const res = await fetch(
+    `${GRAPH_BASE}/${apiVersion}/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+  );
 
-  const json = (await res.json().catch(() => null)) as WhatsAppApiResponse | null;
+  const json = (await res
+    .json()
+    .catch(() => null)) as WhatsAppApiResponse | null;
 
   if (!res.ok) {
     // Prefer the structured Meta error (code + message) over the bare HTTP status.

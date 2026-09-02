@@ -71,6 +71,7 @@ export const businessesRouter = router({
       // Normalize optional free-text fields: empty → null.
       const city = input.city?.trim() || null;
       const address = input.address?.trim() || null;
+      const phone = input.phone?.trim() || null;
       const description = input.description?.trim() || null;
       const imageUrl = input.imageUrl?.trim() || null;
       const manualOpenUntil = input.autoOpenCalendar
@@ -93,6 +94,7 @@ export const businessesRouter = router({
             imageUrl,
             city,
             address,
+            phone,
             autoOpenCalendar: input.autoOpenCalendar,
             autoOpenDays: input.autoOpenDays,
             manualOpenUntil,
@@ -118,6 +120,7 @@ export const businessesRouter = router({
           imageUrl,
           city,
           address,
+          phone,
           autoOpenCalendar: input.autoOpenCalendar,
           autoOpenDays: input.autoOpenDays,
           manualOpenUntil,
