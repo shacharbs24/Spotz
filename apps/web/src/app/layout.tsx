@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { heIL } from "@clerk/localizations";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TRPCProvider } from "@/trpc/Provider";
+import { LegalFooter } from "@/components/legal/LegalFooter";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -35,6 +36,7 @@ export default function RootLayout({
             דילוג לתוכן הראשי
           </a>
           <TRPCProvider>{children}</TRPCProvider>
+          <LegalFooter />
           <SpeedInsights />
         </body>
       </html>

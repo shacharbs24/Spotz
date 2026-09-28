@@ -151,10 +151,6 @@ export default async function PublicBusinessPage({
       </section>
 
       <BusinessReviews reviews={reviews} />
-
-      <footer className="relative z-10 mx-auto w-full max-w-3xl px-4 py-6 text-center text-xs text-ink-muted sm:px-6">
-        מופעל על־ידי Spotz
-      </footer>
     </main>
   );
 }

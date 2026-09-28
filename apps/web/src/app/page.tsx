@@ -84,13 +84,6 @@ export default async function Home() {
 
         {userId && isClient && <ClientPortal name={fullName} />}
       </section>
-
-      <footer
-        className="relative z-10 mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-ink-muted"
-        suppressHydrationWarning
-      >
-        © {new Date().getFullYear()} Spotz · מערכת לתיאום תורים
-      </footer>
     </main>
   );
 }

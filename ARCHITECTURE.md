@@ -395,6 +395,9 @@ accessibility baseline includes a skip-to-content link on every route, a visible
 accessible title, initial focus, focus trapping/restoration, Escape, backdrop,
 and scroll locking. This is a tested technical baseline, not a claim of full
 WCAG/Israeli-regulation compliance or a substitute for an accessibility audit.
+Public legal routes live at `/privacy`, `/terms`, and `/accessibility`; the shared
+footer links them across the application. Operator/contact details are centralized
+in `src/lib/legal.ts` so they can be updated when the business registration changes.
 
 ## Migrations (`packages/db/drizzle`)
 
@@ -419,9 +422,8 @@ WCAG/Israeli-regulation compliance or a substitute for an accessibility audit.
 | 0016 | Private confirmation tokens; one business per owner; contacts keyed by business+user; no overlapping active appointments.                                |
 | 0017 | Reminder attempt count and next retry timestamp.                                                                                                         |
 
-Migrations through 0017 are applied to the development Neon branch; production
-still requires an explicit migration step. Every package type-checks clean via
-`pnpm check-types`.
+Migrations through 0017 are applied to both the development and production Neon
+branches. Every package type-checks clean via `pnpm check-types`.
 
 ## Commands & env
 
@@ -469,10 +471,10 @@ and tests on pushes and pull requests. Natural follow-ups:
 
 - **Integration coverage** — add an isolated PostgreSQL service in CI for booking
   concurrency, exclusion constraints, and authenticated tRPC flows.
-- **Legal/accessibility surface** — the cross-site technical baseline is in
-  place. Add verified privacy, consumer-disclosure, terms, and accessibility
-  content after operator/contact details are supplied; publish compliance claims
-  only after a complete accessibility audit.
+- **Legal/accessibility review** — privacy, terms, and an honest accessibility
+  statement are published with operator/contact details. Have the final wording
+  reviewed professionally, add registration/address details before paid service,
+  and publish full standards-compliance claims only after an accessibility audit.
 - **Keep dev/prod branches in sync** — the `development` Neon branch now isolates
   local work; watch for schema drift between it and `production`.
 - Optional: phone-match backfill for legacy guest bookings (re-add when there's
