@@ -57,8 +57,11 @@ jobs:
             --fail-with-body \
             --silent \
             --show-error \
+            --output /dev/null \
             --retry 2 \
             --retry-delay 10 \
             --retry-all-errors \
             --max-time 60 \
             "${url}"
+
+          echo "Reminder API completed successfully"
