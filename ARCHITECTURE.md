@@ -329,9 +329,12 @@ duplicates, retried, results[] }`. Each `results[]` item includes `appointmentId
 
 `GET` or `POST`. Requires `Authorization: Bearer ${CRON_SECRET}` (401 otherwise,
 500 if `CRON_SECRET` is unset). Supports `?dryRun=1`. Runs on the Node runtime,
-`force-dynamic`, and returns the runner's JSON summary. `vercel.json` invokes it
-hourly at minute zero (`0 * * * *`). Vercel supplies the configured cron bearer
-secret; the same header is required for manual calls.
+`force-dynamic`, and returns the runner's JSON summary. The production scheduler
+is `.github/workflows/reminders.yml`, which calls the deployed endpoint hourly at
+minute 17. GitHub Actions stores `CRON_SECRET` as a repository secret and
+`APP_BASE_URL` as a repository variable. Vercel stores the same `CRON_SECRET` as
+an environment variable. A manually dispatched workflow defaults to dry-run;
+scheduled runs send live reminders.
 
 ### Env vars
 

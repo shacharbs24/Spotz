@@ -53,6 +53,11 @@ status transitions, reminder timing/retries and tokenized URLs, Israeli phone
 normalization, and the core booking/business schemas. GitHub Actions runs type
 checks, lint, and these tests on every push and pull request.
 
+The hourly production reminder trigger also runs through GitHub Actions. Configure
+the repository variable `APP_BASE_URL` with the production origin and the
+repository secret `CRON_SECRET` with the same bearer token configured in Vercel.
+Manual runs default to dry-run; scheduled runs call the production endpoint live.
+
 The Clerk webhook also has a manual integration harness:
 
 ```bash
