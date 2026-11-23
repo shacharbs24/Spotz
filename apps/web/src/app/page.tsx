@@ -30,60 +30,100 @@ export default async function Home() {
     <main
       id="main-content"
       tabIndex={-1}
-      className="relative flex flex-1 flex-col overflow-hidden bg-surface"
+      className="flex flex-1 flex-col bg-surface"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-owner-soft blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-client-soft blur-3xl"
-      />
-
-      <header className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
-        <span className="text-lg font-bold tracking-tight text-ink">
-          Spotz<span className="text-owner">.</span>
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 border-b border-line px-4 py-3 sm:px-8">
+        <span className="flex items-center gap-2.5 text-xl font-bold leading-none">
+          <Image
+            src="/Spotz-profile.png"
+            alt=""
+            width={32}
+            height={32}
+            className="size-8 rounded-md object-contain"
+          />
+          <bdi dir="ltr">
+            Spotz<span className="text-owner">.</span>
+          </bdi>
         </span>
         {userId ? <UserButton /> : <HeaderLoginButton />}
       </header>
 
-      <section
-        className={`pointer-events-auto relative z-10 mx-auto flex w-full flex-1 flex-col px-6 py-12 ${
-          isClient
-            ? "max-w-2xl"
-            : "max-w-2xl items-center justify-center gap-10 text-center"
-        }`}
-      >
-        {!userId && (
-          <>
-            <div className="flex flex-col items-center gap-5">
-              <div className="relative h-40 w-40 sm:h-48 sm:w-48">
-                <Image
-                  src="/Spotz-profile.png"
-                  alt="Spotz"
-                  fill
-                  priority
-                  sizes="(min-width: 640px) 192px, 160px"
-                  className="object-contain drop-shadow-sm"
-                />
-              </div>
-              <span className="rounded-full border border-line bg-surface-raised px-4 py-1.5 text-xs font-medium text-ink-muted">
-                תיאום תורים פשוט, לעסק ולכל לקוח
-              </span>
-              <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-ink sm:text-5xl">
-                ברוכים הבאים ל־Spotz
-              </h1>
-              <p className="max-w-md text-balance text-base leading-7 text-ink-muted sm:text-lg">
-                הדרך הקלה לקבוע ולנהל תורים. בחרו כיצד תרצו להתחיל.
-              </p>
+      {!userId && (
+        <section className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-8 px-4 py-8 sm:px-8 sm:py-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-20 lg:py-20">
+          <div className="min-w-0">
+            <h1 className="max-w-xl text-balance text-[2.25rem] leading-[1.1] font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              קובעים תור.
+              <br />
+              מנהלים את היום.
+            </h1>
+            <p className="mt-4 max-w-md text-base leading-7 text-ink-muted sm:text-lg">
+              מקום אחד לנהל בו את יומן העסק ולקבוע תור דרך הקישור שקיבלתם מהעסק.
+            </p>
+            <div className="mt-6 sm:mt-8">
+              <RoleSelect />
             </div>
-            <RoleSelect />
-          </>
-        )}
+          </div>
+          <AgendaPreview />
+        </section>
+      )}
 
-        {userId && isClient && <ClientPortal name={fullName} />}
-      </section>
+      {userId && isClient && (
+        <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-8 sm:py-12">
+          <ClientPortal name={fullName} />
+        </div>
+      )}
     </main>
+  );
+}
+
+function AgendaPreview() {
+  return (
+    <figure className="min-w-0 rounded-xl border border-line bg-surface-raised">
+      <figcaption className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
+        <span className="text-xl font-semibold">התורים של היום</span>
+        <span className="text-sm text-ink-muted">יומן לדוגמה</span>
+      </figcaption>
+      <ul className="divide-y divide-line px-4 sm:px-6">
+        {[
+          {
+            time: "09:00",
+            service: "תספורת",
+            status: "מאושר",
+            tone: "bg-success-soft text-success",
+          },
+          {
+            time: "10:30",
+            service: "תספורת ועיצוב זקן",
+            status: "ממתין",
+            tone: "bg-pending-soft text-pending",
+          },
+          {
+            time: "12:00",
+            service: "עיצוב זקן",
+            status: "מאושר",
+            tone: "bg-success-soft text-success",
+          },
+        ].map(({ time, service, status, tone }) => (
+          <li
+            key={time}
+            className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2.5 py-4 sm:gap-4"
+          >
+            <time
+              dateTime={time}
+              dir="ltr"
+              className="text-start text-base font-semibold tabular-nums"
+            >
+              {time}
+            </time>
+            <span className="text-sm font-medium sm:text-base">{service}</span>
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}
+            >
+              {status}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </figure>
   );
 }

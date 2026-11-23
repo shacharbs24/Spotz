@@ -17,16 +17,16 @@ interface RoleOption {
 const ROLE_OPTIONS: readonly RoleOption[] = [
   {
     role: "OWNER",
-    title: "אני בעל עסק",
-    blurb: "נהל את היומן, השירותים והתורים שלך במקום אחד.",
+    title: "הרשמה לבעלי עסקים",
+    blurb: "נהלו את היומן, השירותים והתורים.",
     redirectUrl: "/dashboard",
     accent: "owner",
     icon: <StoreIcon />,
   },
   {
     role: "CLIENT",
-    title: "אני לקוח",
-    blurb: "מצא עסק, בחר שירות וקבע תור בכמה הקשות.",
+    title: "הרשמה ללקוחות",
+    blurb: "קבעו תור מקישור לעסק ועקבו אחריו.",
     redirectUrl: "/",
     accent: "client",
     icon: <CalendarIcon />,
@@ -42,7 +42,7 @@ const ROLE_OPTIONS: readonly RoleOption[] = [
  */
 export function RoleSelect() {
   return (
-    <div className="pointer-events-auto grid w-full gap-4 sm:grid-cols-2">
+    <div className="grid w-full gap-2.5">
       {ROLE_OPTIONS.map((option) => (
         <RoleCard key={option.role} option={option} />
       ))}
@@ -57,13 +57,12 @@ function RoleCard({ option }: { option: RoleOption }) {
   const clerk = useClerk();
 
   const isOwner = option.accent === "owner";
-  const hoverBorder = isOwner
-    ? "hover:border-owner focus-visible:border-owner"
-    : "hover:border-client focus-visible:border-client";
+  const surface = isOwner
+    ? "border-owner bg-owner text-white hover:border-owner-hover hover:bg-owner-hover"
+    : "border-control bg-surface-raised text-ink hover:border-client hover:bg-client-soft";
   const chip = isOwner
-    ? "bg-owner-soft text-owner"
+    ? "bg-white/15 text-white"
     : "bg-client-soft text-client";
-  const cta = isOwner ? "text-owner" : "text-client";
 
   const handleSelect = () => {
     clerk.openSignUp({
@@ -77,33 +76,35 @@ function RoleCard({ option }: { option: RoleOption }) {
     <button
       type="button"
       onClick={handleSelect}
-      style={{ touchAction: "manipulation" }}
-      className={`group pointer-events-auto relative z-50 flex h-full cursor-pointer touch-manipulation flex-col items-start gap-4 rounded-2xl border border-line bg-surface-raised p-6 text-right shadow-soft transition-all duration-300 ease-out hover:-translate-y-1 ${hoverBorder}`}
+      className={`grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-3 text-start transition-colors duration-150 sm:px-4 ${surface}`}
     >
-      <span
-        className={`flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${chip}`}
-      >
+      <span className={`grid size-9 place-items-center rounded-lg ${chip}`}>
         {option.icon}
       </span>
-      <span className="flex flex-col gap-1.5">
-        <span className="text-xl font-semibold tracking-tight text-ink">
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-base font-semibold sm:text-lg">
           {option.title}
         </span>
-        <span className="text-sm leading-6 text-ink-muted">
+        <span
+          className={`text-sm leading-5 ${isOwner ? "text-white/90" : "text-ink-muted"}`}
+        >
           {option.blurb}
         </span>
       </span>
-      <span className={`mt-auto inline-flex items-center gap-1 text-sm font-medium ${cta}`}>
-        המשך
-        <ArrowIcon />
-      </span>
+      <ArrowIcon />
     </button>
   );
 }
 
 function StoreIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <path
         d="M3 9.5 4.5 4h15L21 9.5M4 9.5h16v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-9Zm0 0a2.5 2.5 0 0 0 4 0 2.5 2.5 0 0 0 4 0 2.5 2.5 0 0 0 4 0 2.5 2.5 0 0 0 4 0"
         stroke="currentColor"
@@ -116,7 +117,13 @@ function StoreIcon() {
 
 function CalendarIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <rect
         x="3.5"
         y="5"
@@ -145,7 +152,6 @@ function ArrowIcon() {
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
-      className="transition-transform duration-300 group-hover:-translate-x-1"
     >
       {/* RTL: arrow points left */}
       <path

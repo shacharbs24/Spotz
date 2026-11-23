@@ -13,12 +13,14 @@ interface OnboardingFormProps {
   defaultName: string;
   defaultPhone: string;
   redirectTo: string;
+  returningToBooking: boolean;
 }
 
 export function OnboardingForm({
   defaultName,
   defaultPhone,
   redirectTo,
+  returningToBooking,
 }: OnboardingFormProps) {
   const router = useRouter();
 
@@ -41,7 +43,7 @@ export function OnboardingForm({
   return (
     <form
       onSubmit={handleSubmit((values) => update.mutate(values))}
-      className="flex flex-col gap-5 rounded-2xl border border-line bg-surface-raised p-6 shadow-soft sm:p-8"
+      className="flex flex-col gap-5 rounded-xl border border-line bg-surface-raised p-4 sm:p-6"
     >
       <div className="flex flex-col gap-1.5">
         <label htmlFor="fullName" className="text-sm font-medium text-ink">
@@ -50,15 +52,21 @@ export function OnboardingForm({
         <input
           id="fullName"
           type="text"
+          autoComplete="name"
+          aria-invalid={Boolean(errors.fullName)}
+          aria-describedby="fullName-description"
           placeholder="ישראל ישראלי"
           className={inputClass(Boolean(errors.fullName))}
           {...register("fullName")}
         />
-        {errors.fullName ? (
-          <p className="text-xs text-danger">{errors.fullName.message}</p>
-        ) : (
-          <p className="text-xs text-ink-muted">מומלץ להזין את השם בעברית</p>
-        )}
+        <p
+          id="fullName-description"
+          className={
+            errors.fullName ? "text-sm text-danger" : "text-sm text-ink-muted"
+          }
+        >
+          {errors.fullName?.message ?? "מומלץ להזין את השם בעברית"}
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -68,13 +76,18 @@ export function OnboardingForm({
         <input
           id="phone"
           type="tel"
+          autoComplete="tel"
           dir="ltr"
+          aria-invalid={Boolean(errors.phone)}
+          aria-describedby={errors.phone ? "phone-error" : undefined}
           placeholder="050-0000000"
           className={`${inputClass(Boolean(errors.phone))} text-right`}
           {...register("phone")}
         />
         {errors.phone && (
-          <p className="text-xs text-danger">{errors.phone.message}</p>
+          <p id="phone-error" className="text-sm text-danger">
+            {errors.phone.message}
+          </p>
         )}
       </div>
 
@@ -90,16 +103,20 @@ export function OnboardingForm({
       <button
         type="submit"
         disabled={update.isPending}
-        className="inline-flex items-center justify-center gap-2 rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
+        className="action-primary"
       >
-        {update.isPending ? "שומר…" : "שמירה והמשך"}
+        {update.isPending
+          ? "שומר…"
+          : returningToBooking
+            ? "שמירה וחזרה להזמנה"
+            : "שמירה והמשך"}
       </button>
     </form>
   );
 }
 
 function inputClass(hasError: boolean): string {
-  return `w-full rounded-xl border bg-surface-raised px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted/60 focus:border-owner ${
-    hasError ? "border-danger" : "border-line"
+  return `min-h-11 w-full rounded-lg border bg-surface-raised px-3 py-2 text-base text-ink transition-colors placeholder:text-ink-muted focus:border-owner ${
+    hasError ? "border-danger" : "border-control"
   }`;
 }

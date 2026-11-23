@@ -46,9 +46,15 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
 
       const focusable = Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
         ),
-      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+      ).filter(
+        (element) =>
+          element.tabIndex >= 0 &&
+          !element.closest('[aria-hidden="true"], [inert]') &&
+          element.getClientRects().length > 0 &&
+          getComputedStyle(element).visibility === "visible",
+      );
 
       const first = focusable[0];
       const last = focusable.at(-1);
@@ -85,7 +91,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-ink/50"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -95,7 +101,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl border border-line bg-surface-raised shadow-soft sm:max-h-[90dvh] sm:rounded-2xl"
+        className="relative z-10 flex max-h-[90dvh] w-full max-w-xl flex-col rounded-t-2xl bg-surface-raised shadow-soft sm:rounded-2xl"
       >
         <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-4 sm:px-8 sm:pt-7">
           <h2
@@ -109,9 +115,22 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             type="button"
             onClick={onClose}
             aria-label="סגירה"
-            className="-me-2 flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-line hover:text-ink"
+            className="-me-2 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface hover:text-ink"
           >
-            ✕
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="m6 6 12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
         <div className="overflow-y-auto overscroll-contain px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-8">

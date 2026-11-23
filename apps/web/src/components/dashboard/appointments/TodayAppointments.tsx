@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { trpc } from "@/trpc/client";
+import { QueryFailure } from "@/components/ui/QueryFailure";
 import { AgendaRow, AgendaSkeleton, toDateStr } from "./AgendaRow";
 
 /**
@@ -13,9 +14,11 @@ export function TodayAppointments() {
   const today = useMemo(() => toDateStr(new Date()), []);
 
   const utils = trpc.useUtils();
-  const appointmentsQuery = trpc.appointments.getDashboardAppointments.useQuery({
-    date: today,
-  });
+  const appointmentsQuery = trpc.appointments.getDashboardAppointments.useQuery(
+    {
+      date: today,
+    },
+  );
 
   const updateStatus = trpc.appointments.updateAppointmentStatus.useMutation({
     onSuccess: () => utils.appointments.getDashboardAppointments.invalidate(),
@@ -28,6 +31,16 @@ export function TodayAppointments() {
 
   if (appointmentsQuery.isLoading) {
     return <AgendaSkeleton />;
+  }
+
+  if (appointmentsQuery.isError && !appointmentsQuery.data) {
+    return (
+      <QueryFailure
+        message="לא הצלחנו לטעון את התורים של היום."
+        onRetry={() => void appointmentsQuery.refetch()}
+        retrying={appointmentsQuery.isFetching}
+      />
+    );
   }
 
   if (appointments.length === 0) {

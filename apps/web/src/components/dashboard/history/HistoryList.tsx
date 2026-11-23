@@ -5,6 +5,7 @@ import { trpc } from "@/trpc/client";
 import { useDebounce } from "@/hooks/useDebounce";
 import { formatPrice } from "@/lib/format";
 import { STATUS_META } from "@/components/dashboard/appointments/AgendaRow";
+import { QueryFailure } from "@/components/ui/QueryFailure";
 import type { AppointmentHistoryRow } from "@/trpc/types";
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -47,6 +48,12 @@ export function HistoryList() {
 
       {historyQuery.isLoading ? (
         <ListSkeleton />
+      ) : historyQuery.isError && !historyQuery.data ? (
+        <QueryFailure
+          message="לא הצלחנו לטעון את היסטוריית התורים."
+          onRetry={() => void historyQuery.refetch()}
+          retrying={historyQuery.isFetching}
+        />
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line bg-surface-raised px-6 py-14 text-center text-ink-muted">
           {debouncedSearch.trim()
@@ -61,6 +68,11 @@ export function HistoryList() {
         </ol>
       )}
 
+      {historyQuery.isFetchNextPageError && (
+        <p role="alert" className="text-center text-sm text-danger">
+          לא הצלחנו לטעון תורים נוספים.
+        </p>
+      )}
       {historyQuery.hasNextPage && (
         <button
           type="button"
@@ -91,7 +103,9 @@ function HistoryRow({ appointment }: { appointment: AppointmentHistoryRow }) {
             {meta.label}
           </span>
         </div>
-        <span className="text-sm text-ink-muted">{appointment.serviceName}</span>
+        <span className="text-sm text-ink-muted">
+          {appointment.serviceName}
+        </span>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
           <span>{appointment.date}</span>
           <span dir="ltr">

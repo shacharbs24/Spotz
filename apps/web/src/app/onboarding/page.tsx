@@ -25,19 +25,22 @@ export default async function OnboardingPage({
   // Only allow internal redirect targets (avoid open redirect).
   const redirectTo =
     redirectParam && redirectParam.startsWith("/") ? redirectParam : "/";
+  const returningToBooking = redirectTo.startsWith("/b/");
 
   return (
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-6 py-12"
+      className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-5 px-4 py-8 sm:px-6 sm:py-12"
     >
-      <div className="flex flex-col gap-2 text-center">
+      <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight text-ink">
-          ברוכים הבאים 👋
+          השלמת פרטי קשר
         </h1>
         <p className="text-ink-muted">
-          עוד פרט אחד לפני שמתחילים — נשמח לדעת איך ליצור איתכם קשר.
+          {returningToBooking
+            ? "הוסיפו שם וטלפון כדי שהעסק יוכל ליצור קשר לגבי התור. לאחר השמירה נחזור לשירות שבחרתם."
+            : "הוסיפו שם וטלפון כדי שנוכל לזהות אתכם בתורים שתקבעו."}
         </p>
       </div>
 
@@ -45,6 +48,7 @@ export default async function OnboardingPage({
         defaultName={profile.fullName ?? ""}
         defaultPhone={profile.phone ?? ""}
         redirectTo={redirectTo}
+        returningToBooking={returningToBooking}
       />
     </main>
   );

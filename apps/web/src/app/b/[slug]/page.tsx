@@ -10,16 +10,19 @@ import { StarRating } from "@/components/ui/StarRating";
 
 interface PublicBusinessPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ booking?: string | string[] }>;
 }
 
 export default async function PublicBusinessPage({
   params,
+  searchParams,
 }: PublicBusinessPageProps) {
   // slug, the tRPC caller, and the Clerk session are mutually independent.
-  const [{ slug }, caller, { userId }] = await Promise.all([
+  const [{ slug }, caller, { userId }, { booking }] = await Promise.all([
     params,
     getServerCaller(),
     auth(),
+    searchParams,
   ]);
   const data = await caller.public.getBusinessBySlug({ slug });
 
@@ -41,6 +44,12 @@ export default async function PublicBusinessPage({
     : !profile?.phone
       ? "needs-onboarding"
       : "ready";
+  const resumeServiceId =
+    authState === "ready" &&
+    typeof booking === "string" &&
+    services.some((service) => service.id === booking)
+      ? booking
+      : undefined;
 
   const location = [business.city, business.address]
     .filter(Boolean)
@@ -50,103 +59,103 @@ export default async function PublicBusinessPage({
     <main
       id="main-content"
       tabIndex={-1}
-      className="relative flex flex-1 flex-col overflow-hidden bg-surface"
+      className="flex flex-1 flex-col bg-surface"
     >
-      {/* Atmospheric glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[40rem] -translate-x-1/2 rounded-full bg-owner-soft blur-3xl"
-      />
-
-      {/* Back to the client's portal / previous page */}
-      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">
+      <div className="mx-auto w-full max-w-4xl px-4 pt-4 sm:px-6">
         <BackButton />
       </div>
 
-      {/* 1. Business image — prominent cover at the very top */}
-      {business.imageUrl ? (
-        <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-8">
-          <div className="relative h-48 w-full overflow-hidden rounded-2xl border border-line shadow-soft sm:h-72">
+      <header className="mx-auto grid w-full max-w-4xl items-start gap-5 px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="min-w-0">
+          <h1 className="text-balance text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            {business.name}
+          </h1>
+
+          {business.description && (
+            <p className="mt-2 max-w-xl text-base leading-7 text-ink-muted">
+              {business.description}
+            </p>
+          )}
+
+          {(location || business.phone) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
+              {location && (
+                <span className="inline-flex items-center gap-1.5">
+                  <PinIcon />
+                  {location}
+                </span>
+              )}
+              {business.phone && (
+                <a
+                  href={`tel:${business.phone}`}
+                  dir="ltr"
+                  className="inline-flex min-h-11 items-center gap-1.5 transition-colors hover:text-ink"
+                >
+                  <PhoneIcon />
+                  {business.phone}
+                </a>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {ratingSummary.reviewCount > 0 && (
+              <div className="inline-flex items-center gap-2 text-sm text-ink">
+                <StarRating value={ratingSummary.averageRating} />
+                <span className="font-semibold">
+                  {ratingSummary.averageRating}
+                </span>
+                <span className="text-ink-muted">
+                  מתוך 5 · {ratingSummary.reviewCount} חוות דעת
+                </span>
+              </div>
+            )}
+            {services.length > 0 && (
+              <a href="#services-heading" className="action-primary">
+                לשירותים
+              </a>
+            )}
+            <PublicReviewButton
+              businessId={business.id}
+              defaultName={viewerName}
+            />
+          </div>
+        </div>
+
+        {business.imageUrl && (
+          <div className="relative aspect-[3/1] w-full overflow-hidden rounded-xl md:aspect-[4/3] md:w-56">
             <Image
               src={business.imageUrl}
               alt={business.name}
               fill
-              priority
-              sizes="(max-width: 768px) 100vw, 768px"
+              sizes="(min-width: 768px) 224px, 100vw"
               className="object-cover"
             />
           </div>
-        </div>
-      ) : null}
-
-      {/* Title + 2. description immediately below */}
-      <header className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center px-4 pt-6 pb-8 text-center sm:px-6 sm:pt-8">
-        {!business.imageUrl && (
-          <p className="mb-4 text-sm font-medium tracking-wide text-owner">
-            קביעת תור אונליין
-          </p>
         )}
-
-        <h1 className="text-balance text-3xl font-bold tracking-tight text-ink sm:text-5xl">
-          {business.name}
-        </h1>
-
-        {business.description && (
-          <p className="mx-auto mt-4 max-w-xl text-balance text-base leading-7 text-ink-muted">
-            {business.description}
-          </p>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-muted">
-          {location && (
-            <span className="inline-flex items-center gap-1.5">
-              <PinIcon />
-              {location}
-            </span>
-          )}
-          {business.phone && (
-            <a
-              href={`tel:${business.phone}`}
-              dir="ltr"
-              className="inline-flex min-h-8 items-center gap-1.5 transition-colors hover:text-ink"
-            >
-              <PhoneIcon />
-              {business.phone}
-            </a>
-          )}
-        </div>
-
-        <div className="mt-4 flex flex-col items-center gap-3">
-          {ratingSummary.reviewCount > 0 && (
-            <div className="inline-flex items-center gap-2 text-sm text-ink">
-              <StarRating value={ratingSummary.averageRating} />
-              <span className="font-semibold">
-                {ratingSummary.averageRating}
-              </span>
-              <span className="text-ink-muted">
-                מתוך 5 · {ratingSummary.reviewCount} חוות דעת
-              </span>
-            </div>
-          )}
-          <PublicReviewButton
-            businessId={business.id}
-            defaultName={viewerName}
-          />
-        </div>
       </header>
 
-      {/* Services */}
-      <section className="relative z-10 mx-auto w-full max-w-3xl flex-1 px-4 pb-16 sm:px-6 sm:pb-20">
-        <h2 className="mb-5 text-lg font-semibold tracking-tight text-ink">
+      <section
+        id="services"
+        aria-labelledby="services-heading"
+        className="mx-auto w-full max-w-4xl flex-1 scroll-mt-4 px-4 pb-10 sm:px-6 sm:pb-14"
+      >
+        <h2
+          id="services-heading"
+          tabIndex={-1}
+          className="mb-4 scroll-mt-4 text-xl font-semibold tracking-tight text-ink"
+        >
           השירותים שלנו
         </h2>
 
         <PublicServices
+          key={resumeServiceId ?? business.id}
           businessId={business.id}
           services={services}
           maxBookingDate={business.maxBookingDate}
           authState={authState}
           slug={slug}
+          resumeServiceId={resumeServiceId}
         />
       </section>
 

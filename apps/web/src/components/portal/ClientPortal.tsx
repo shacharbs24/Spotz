@@ -6,13 +6,14 @@ import Image from "next/image";
 import { trpc } from "@/trpc/client";
 import { formatPrice } from "@/lib/format";
 import { Modal } from "@/components/ui/Modal";
+import { QueryFailure } from "@/components/ui/QueryFailure";
 import { ReviewForm } from "./ReviewForm";
 import type { ClientAppointment, MyBusiness } from "@/trpc/types";
 import type { AppointmentStatus } from "@spotz/api/schemas/appointment";
 
 const STATUS_META: Record<AppointmentStatus, { label: string; badge: string }> =
   {
-    PENDING: { label: "ממתין", badge: "bg-pending-soft text-pending" },
+    PENDING: { label: "ממתין לאישור", badge: "bg-pending-soft text-pending" },
     CONFIRMED: { label: "מאושר", badge: "bg-success-soft text-success" },
     CANCELLED: { label: "מבוטל", badge: "bg-danger-soft text-danger" },
     COMPLETED: { label: "הושלם", badge: "bg-owner-soft text-owner" },
@@ -41,23 +42,15 @@ export function ClientPortal({ name }: { name: string | null }) {
     <div className="flex w-full flex-col gap-8 text-right">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight text-ink">
-          שלום{name ? `, ${name}` : ""} 👋
+          שלום
+          {name && (
+            <>
+              , <bdi>{name}</bdi>
+            </>
+          )}
         </h1>
         <p className="text-ink-muted">כאן תוכלו לעקוב אחר התורים שלכם.</p>
       </div>
-
-      {businesses.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xl font-semibold tracking-tight text-ink">
-            העסקים שלי
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {businesses.map((business) => (
-              <MyBusinessCard key={business.id} business={business} />
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-semibold tracking-tight text-ink">
@@ -65,9 +58,20 @@ export function ClientPortal({ name }: { name: string | null }) {
         </h2>
         {upcomingQuery.isLoading ? (
           <ListSkeleton />
+        ) : upcomingQuery.isError && !upcomingQuery.data ? (
+          <QueryFailure
+            message="לא הצלחנו לטעון את התורים הקרובים."
+            onRetry={() => void upcomingQuery.refetch()}
+            retrying={upcomingQuery.isFetching}
+          />
         ) : upcoming.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-surface-raised px-6 py-10 text-center text-ink-muted">
-            אין לכם תורים קרובים.
+          <div className="rounded-xl border border-line bg-surface-raised px-4 py-5">
+            <p className="font-medium">אין לכם תורים קרובים.</p>
+            <p className="mt-1 text-sm text-ink-muted">
+              {businesses.length > 0
+                ? "אפשר לקבוע תור נוסף דרך העסקים שלכם בהמשך העמוד."
+                : "כדי לקבוע תור, פתחו את קישור ההזמנה שקיבלתם מהעסק."}
+            </p>
           </div>
         ) : (
           upcoming.map((appointment) => (
@@ -82,16 +86,50 @@ export function ClientPortal({ name }: { name: string | null }) {
               isCancelling={
                 cancel.isPending && cancel.variables?.id === appointment.id
               }
+              cancelError={
+                cancel.variables?.id === appointment.id
+                  ? cancel.error?.message
+                  : undefined
+              }
             />
           ))
         )}
       </section>
 
-      {past.length > 0 && (
+      {(businesses.length > 0 || businessesQuery.isError) && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            העסקים שלי
+          </h2>
+          {businessesQuery.isError && !businessesQuery.data ? (
+            <QueryFailure
+              message="לא הצלחנו לטעון את העסקים שלכם."
+              onRetry={() => void businessesQuery.refetch()}
+              retrying={businessesQuery.isFetching}
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {businesses.map((business) => (
+                <MyBusinessCard key={business.id} business={business} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {(past.length > 0 || pastQuery.isLoading || pastQuery.isError) && (
         <section className="flex flex-col gap-3">
           <h2 className="text-xl font-semibold tracking-tight text-ink">
             היסטוריית תורים
           </h2>
+          {pastQuery.isLoading && <ListSkeleton />}
+          {pastQuery.isError && !pastQuery.data && (
+            <QueryFailure
+              message="לא הצלחנו לטעון את היסטוריית התורים."
+              onRetry={() => void pastQuery.refetch()}
+              retrying={pastQuery.isFetching}
+            />
+          )}
           {past.map((appointment) => (
             <ClientApptCard
               key={appointment.id}
@@ -102,6 +140,11 @@ export function ClientPortal({ name }: { name: string | null }) {
               onReview={() => setReviewingId(appointment.id)}
             />
           ))}
+          {pastQuery.isFetchNextPageError && (
+            <p role="alert" className="text-center text-sm text-danger">
+              לא הצלחנו לטעון תורים נוספים.
+            </p>
+          )}
           {pastQuery.hasNextPage && (
             <button
               type="button"
@@ -135,7 +178,7 @@ function MyBusinessCard({ business }: { business: MyBusiness }) {
   return (
     <Link
       href={`/b/${business.slug}`}
-      className="group flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-3 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-owner/40"
+      className="flex items-center gap-3 rounded-xl border border-line bg-surface-raised p-3 transition-colors hover:border-owner hover:bg-owner-soft"
     >
       {business.imageUrl ? (
         <Image
@@ -156,9 +199,7 @@ function MyBusinessCard({ business }: { business: MyBusiness }) {
         </span>
         <span className="inline-flex items-center gap-1 text-sm text-owner">
           קביעת תור
-          <span className="transition-transform duration-300 group-hover:-translate-x-1">
-            ←
-          </span>
+          <span aria-hidden="true">←</span>
         </span>
       </span>
     </Link>
@@ -170,6 +211,7 @@ interface ClientApptCardProps {
   cancellable?: boolean;
   onCancel?: () => void;
   isCancelling?: boolean;
+  cancelError?: string;
   reviewable?: boolean;
   onReview?: () => void;
 }
@@ -179,6 +221,7 @@ function ClientApptCard({
   cancellable = false,
   onCancel,
   isCancelling = false,
+  cancelError,
   reviewable = false,
   onReview,
 }: ClientApptCardProps) {
@@ -186,9 +229,9 @@ function ClientApptCard({
   const meta = STATUS_META[appointment.status];
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface-raised p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface-raised p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold tracking-tight text-ink">
             {appointment.businessName}
           </span>
@@ -198,7 +241,9 @@ function ClientApptCard({
             {meta.label}
           </span>
         </div>
-        <span className="text-sm text-ink-muted">{appointment.serviceName}</span>
+        <span className="text-sm text-ink-muted">
+          {appointment.serviceName}
+        </span>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
           <span>{appointment.date}</span>
           <span dir="ltr">
@@ -211,11 +256,7 @@ function ClientApptCard({
       </div>
 
       {reviewable && onReview && (
-        <button
-          type="button"
-          onClick={onReview}
-          className="cursor-pointer rounded-full bg-owner px-4 py-1.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03]"
-        >
+        <button type="button" onClick={onReview} className="action-primary">
           הוסף חוות דעת
         </button>
       )}
@@ -251,14 +292,14 @@ function ClientApptCard({
               type="button"
               onClick={onCancel}
               disabled={isCancelling}
-              className="cursor-pointer font-medium text-danger transition-colors hover:underline disabled:opacity-60"
+              className="min-h-11 cursor-pointer px-2 font-medium text-danger transition-colors hover:underline disabled:opacity-60"
             >
               {isCancelling ? "מבטל…" : "כן, בטל"}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="cursor-pointer text-ink-muted transition-colors hover:text-ink"
+              className="min-h-11 cursor-pointer px-2 text-ink-muted transition-colors hover:text-ink"
             >
               חזרה
             </button>
@@ -267,11 +308,16 @@ function ClientApptCard({
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium text-danger transition-colors hover:bg-danger-soft"
+            className="min-h-11 cursor-pointer rounded-lg px-4 text-sm font-medium text-danger transition-colors hover:bg-danger-soft"
           >
             ביטול תור
           </button>
         ))}
+      {confirming && cancelError && (
+        <p role="alert" className="basis-full text-sm text-danger">
+          {cancelError}
+        </p>
+      )}
     </div>
   );
 }

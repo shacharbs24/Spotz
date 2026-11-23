@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Modal } from "@/components/ui/Modal";
-import { formatPrice } from "@/lib/format";
+import { QueryFailure } from "@/components/ui/QueryFailure";
+import { formatDuration, formatPrice } from "@/lib/format";
 import type { PublicService } from "@/trpc/types";
 
 interface BookingModalProps {
@@ -22,6 +23,7 @@ interface DayOption {
 }
 
 const MAX_DAYS_SHOWN = 366; // schema allows today + up to 365 days
+const DAYS_PER_PAGE = 7;
 
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -74,6 +76,7 @@ export function BookingModal({
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [firstVisibleDay, setFirstVisibleDay] = useState(0);
   const [confirmed, setConfirmed] = useState<{
     date: string;
     time: string;
@@ -95,12 +98,29 @@ export function BookingModal({
   });
 
   const handleSelectDate = (date: string) => {
+    if (date === selectedDate) return;
+    createAppointment.reset();
     setSelectedDate(date);
     setSelectedTime(null);
   };
 
+  const slots = slotsQuery.data ?? [];
+  const availableSelection =
+    selectedTime !== null && slots.includes(selectedTime);
+  const visibleDays = days.slice(
+    firstVisibleDay,
+    firstVisibleDay + DAYS_PER_PAGE,
+  );
+  const price = formatPrice(service.priceCents, service.currency);
+
   const handleConfirm = () => {
-    if (!selectedDate || !selectedTime) return;
+    if (
+      !selectedDate ||
+      !selectedTime ||
+      !availableSelection ||
+      createAppointment.isPending
+    )
+      return;
     createAppointment.mutate({
       businessId,
       serviceId: service.id,
@@ -108,8 +128,6 @@ export function BookingModal({
       time: selectedTime,
     });
   };
-
-  const slots = slotsQuery.data ?? [];
 
   return (
     <Modal
@@ -124,73 +142,129 @@ export function BookingModal({
       }
     >
       {confirmed ? (
-        <div className="flex flex-col items-center gap-4 py-4 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-owner-soft text-2xl text-owner">
-            ✓
-          </div>
-          <h3 className="text-lg font-semibold text-ink">
-            {confirmed.status === "CONFIRMED"
-              ? "התור נקבע ואושר בהצלחה!"
-              : "בקשת התור נשלחה בהצלחה!"}
-          </h3>
-          <p className="text-sm leading-6 text-ink-muted">
-            {service.name}
-            <br />
-            {formatDateHe(confirmed.date)} בשעה {confirmed.time}
-          </p>
-          <p className="text-xs text-ink-muted">
-            {confirmed.status === "CONFIRMED"
-              ? "סטטוס: מאושר"
-              : "סטטוס: ממתין לאישור העסק"}
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-2 inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-owner px-6 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03]"
+        <div className="flex flex-col gap-4">
+          <div
+            role="status"
+            className="flex flex-col items-start gap-2 border-b border-line pb-4"
           >
-            סגירה
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                confirmed.status === "CONFIRMED"
+                  ? "bg-success-soft text-success"
+                  : "bg-pending-soft text-pending"
+              }`}
+            >
+              {confirmed.status === "CONFIRMED" ? "מאושר" : "ממתין לאישור העסק"}
+            </span>
+            <p className="text-base font-semibold">{service.name}</p>
+            <p className="text-sm text-ink-muted">
+              {formatDateHe(confirmed.date)} בשעה{" "}
+              <bdi dir="ltr" className="tabular-nums">
+                {confirmed.time}
+              </bdi>
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="action-primary">
+            סיום
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
-            <span className="min-w-0 break-words font-medium text-ink">
-              {service.name}
-            </span>
-            <span className="text-sm font-semibold text-owner">
-              {formatPrice(service.priceCents, service.currency)}
-            </span>
+        <div className="flex flex-col gap-5">
+          <div className="flex items-start justify-between gap-3 border-b border-line pb-4">
+            <div className="min-w-0">
+              <p className="font-semibold break-words">{service.name}</p>
+              <p className="text-sm text-ink-muted">
+                {formatDuration(service.durationMinutes)}
+              </p>
+            </div>
+            <bdi className="shrink-0 font-semibold tabular-nums">{price}</bdi>
           </div>
 
-          <Step n={1} label="בחרו תאריך">
-            <div className="flex snap-x gap-2 overflow-x-auto pb-1">
-              {days.map((day) => (
+          <fieldset className="min-w-0" disabled={createAppointment.isPending}>
+            <legend className="mb-2 font-semibold">בחרו תאריך</legend>
+            {days.length === 0 && (
+              <p className="text-sm text-ink-muted">
+                אין כרגע תאריכים פתוחים להזמנה.
+              </p>
+            )}
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+              {visibleDays.map((day) => (
                 <button
                   key={day.value}
                   type="button"
+                  aria-label={
+                    day.weekday === "היום"
+                      ? `היום, ${formatDateHe(day.value)}`
+                      : formatDateHe(day.value)
+                  }
+                  aria-pressed={selectedDate === day.value}
                   onClick={() => handleSelectDate(day.value)}
-                  className={dayButtonClass(selectedDate === day.value)}
+                  className={`flex min-h-12 flex-col items-center justify-center rounded-lg border px-1 py-1.5 text-sm transition-colors ${choiceClass(selectedDate === day.value)}`}
                 >
                   <span className="text-xs">{day.weekday}</span>
                   <span className="text-sm font-semibold">{day.dayMonth}</span>
                 </button>
               ))}
             </div>
-          </Step>
+            {days.length > DAYS_PER_PAGE && (
+              <div className="mt-1 flex flex-wrap justify-between gap-1">
+                <button
+                  type="button"
+                  aria-disabled={firstVisibleDay === 0}
+                  onClick={() => {
+                    if (firstVisibleDay > 0)
+                      setFirstVisibleDay(firstVisibleDay - DAYS_PER_PAGE);
+                  }}
+                  className="min-h-11 rounded-lg px-2 text-sm font-medium text-owner hover:bg-owner-soft aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
+                >
+                  לתאריכים הקודמים
+                </button>
+                <button
+                  type="button"
+                  aria-disabled={firstVisibleDay + DAYS_PER_PAGE >= days.length}
+                  onClick={() => {
+                    if (firstVisibleDay + DAYS_PER_PAGE < days.length)
+                      setFirstVisibleDay(firstVisibleDay + DAYS_PER_PAGE);
+                  }}
+                  className="ms-auto min-h-11 rounded-lg px-2 text-sm font-medium text-owner hover:bg-owner-soft aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
+                >
+                  לתאריכים הבאים
+                </button>
+              </div>
+            )}
+          </fieldset>
 
           {selectedDate && (
-            <Step n={2} label="בחרו שעה">
+            <fieldset
+              className="min-w-0"
+              disabled={createAppointment.isPending}
+            >
+              <legend className="mb-2 font-semibold">בחרו שעה</legend>
+              <p className="mb-2 text-sm text-ink-muted">
+                {formatDateHe(selectedDate)}
+              </p>
               {slotsQuery.isLoading ? (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                <div
+                  className="grid grid-cols-3 gap-2 sm:grid-cols-4"
+                  role="status"
+                >
+                  <span className="sr-only">טוען שעות פנויות…</span>
                   {[0, 1, 2, 3, 4, 5].map((i) => (
                     <div
                       key={i}
-                      className="h-11 animate-pulse rounded-xl bg-line sm:h-9"
+                      aria-hidden="true"
+                      className="h-11 animate-pulse rounded-lg bg-line"
                     />
                   ))}
                 </div>
+              ) : slotsQuery.isError ? (
+                <QueryFailure
+                  message="לא הצלחנו לטעון את השעות הפנויות."
+                  onRetry={() => void slotsQuery.refetch()}
+                  retrying={slotsQuery.isFetching}
+                />
               ) : slots.length === 0 ? (
-                <p className="text-sm text-ink-muted">
+                <p role="status" className="text-sm text-ink-muted">
                   אין תורים פנויים ביום זה. נסו תאריך אחר.
                 </p>
               ) : (
@@ -200,82 +274,83 @@ export function BookingModal({
                       key={time}
                       type="button"
                       dir="ltr"
-                      onClick={() => setSelectedTime(time)}
-                      className={slotButtonClass(selectedTime === time)}
+                      aria-pressed={selectedTime === time}
+                      onClick={() => {
+                        createAppointment.reset();
+                        setSelectedTime(time);
+                      }}
+                      className={`min-h-11 rounded-lg border px-2 py-1.5 text-sm font-medium tabular-nums transition-colors ${choiceClass(selectedTime === time)}`}
                     >
                       {time}
                     </button>
                   ))}
                 </div>
               )}
-            </Step>
+            </fieldset>
           )}
 
-          {selectedDate && selectedTime && (
-            <Step n={3} label="אישור">
-              <div className="flex flex-col gap-4">
-                {createAppointment.error && (
-                  <p
-                    role="alert"
-                    className="rounded-xl bg-client-soft px-4 py-3 text-sm text-client"
-                  >
-                    {createAppointment.error.message}
-                  </p>
-                )}
-
+          {createAppointment.error && (
+            <p
+              role="alert"
+              className="rounded-lg bg-danger-soft px-4 py-3 text-sm text-danger"
+            >
+              {createAppointment.error.message}
+            </p>
+          )}
+          {selectedDate &&
+            selectedTime &&
+            !availableSelection &&
+            !slotsQuery.isError &&
+            !slotsQuery.isFetching && (
+              <p role="status" className="text-sm text-ink-muted">
+                השעה שבחרתם כבר אינה זמינה. בחרו שעה אחרת.
+              </p>
+            )}
+          {selectedDate &&
+            selectedTime &&
+            availableSelection &&
+            !slotsQuery.isError && (
+              <section
+                aria-label="סיכום התור"
+                className="flex flex-col gap-3 rounded-xl bg-surface p-4"
+              >
+                <h3 className="font-semibold">סיכום התור</h3>
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+                  <dt className="text-ink-muted">שירות</dt>
+                  <dd className="break-words">{service.name}</dd>
+                  <dt className="text-ink-muted">מועד</dt>
+                  <dd>
+                    {formatDateHe(selectedDate)} בשעה{" "}
+                    <bdi dir="ltr" className="tabular-nums">
+                      {selectedTime}
+                    </bdi>
+                  </dd>
+                  <dt className="text-ink-muted">מחיר</dt>
+                  <dd>
+                    <bdi className="font-semibold tabular-nums">{price}</bdi>
+                  </dd>
+                </dl>
                 <button
                   type="button"
                   onClick={handleConfirm}
                   disabled={createAppointment.isPending}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-owner px-6 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="action-primary"
                 >
                   {createAppointment.isPending
-                    ? "קובע תור…"
+                    ? "שולח את הבקשה…"
                     : "אישור וקביעת תור"}
                 </button>
-              </div>
-            </Step>
-          )}
+              </section>
+            )}
         </div>
       )}
     </Modal>
   );
 }
 
-function Step({
-  n,
-  label,
-  children,
-}: {
-  n: number;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-owner-soft text-xs font-semibold text-owner">
-          {n}
-        </span>
-        <span className="text-sm font-semibold text-ink">{label}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function dayButtonClass(selected: boolean): string {
-  return `flex w-16 shrink-0 snap-start cursor-pointer flex-col items-center gap-0.5 rounded-xl border px-2 py-2.5 transition-colors ${
-    selected
-      ? "border-owner bg-owner-soft text-owner"
-      : "border-line text-ink-muted hover:border-owner/40"
-  }`;
-}
-
-function slotButtonClass(selected: boolean): string {
-  return `min-h-11 rounded-xl border px-3 py-2 text-sm font-medium transition-colors sm:min-h-9 ${
-    selected
-      ? "border-owner bg-owner text-white"
-      : "border-line text-ink hover:border-owner/50"
-  }`;
+function choiceClass(selected: boolean): string {
+  const state = selected
+    ? "border-owner bg-owner text-white"
+    : "border-control bg-surface-raised text-ink hover:border-owner hover:bg-owner-soft";
+  return `cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${state}`;
 }
