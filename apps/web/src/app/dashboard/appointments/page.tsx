@@ -10,9 +10,9 @@ export default async function AppointmentsPage() {
   }
 
   return (
-    <div className="grid w-full max-w-3xl gap-6 sm:gap-8">
+    <div className="grid w-full min-w-0 max-w-3xl grid-cols-1 gap-6 sm:gap-8">
       <DashboardHeading
-        title="התורים שלי"
+        title="כל התורים"
         description="בחרו תאריך כדי לראות את התורים לפי שעה ולעדכן את הסטטוס שלהם."
       />
       <AppointmentsList />

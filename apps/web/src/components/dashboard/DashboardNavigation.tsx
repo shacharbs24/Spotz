@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
 
 const calendar = [
   { href: "/dashboard", label: "היום" },
@@ -24,15 +25,18 @@ function NavigationLink({
   item,
   pathname,
   compact = false,
+  onSelect,
 }: {
   item: Destination;
   pathname: string;
   compact?: boolean;
+  onSelect?: () => void;
 }) {
   const active = pathname === item.href;
   return (
     <Link
       href={item.href}
+      onClick={onSelect}
       aria-current={active ? "page" : undefined}
       className={`flex min-h-11 items-center rounded-lg py-2 text-sm transition-colors ${
         compact ? "justify-center px-1.5 text-center" : "px-3"
@@ -49,7 +53,6 @@ function NavigationLink({
 
 export function DashboardNavigation() {
   const pathname = usePathname();
-  const extraPage = mobileMore.some((item) => item.href === pathname);
 
   return (
     <div className="sticky top-0 z-20 min-w-0 bg-surface py-2 lg:top-6 lg:self-start lg:py-0">
@@ -89,53 +92,100 @@ export function DashboardNavigation() {
             compact
           />
         ))}
-        <details
-          key={pathname}
-          className="relative"
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget))
-              event.currentTarget.open = false;
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && event.currentTarget.open) {
-              event.currentTarget.open = false;
-              event.currentTarget.querySelector("summary")?.focus();
-            }
-          }}
-        >
-          <summary
-            className={`flex min-h-11 cursor-pointer list-none items-center justify-center gap-1 rounded-lg px-1.5 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden ${
-              extraPage
-                ? "bg-owner-soft font-semibold text-owner"
-                : "text-ink-muted hover:bg-surface hover:text-ink"
-            }`}
-          >
-            עוד
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="m6 9 6 6 6-6"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </summary>
-          <ul className="absolute end-0 top-full mt-2 grid w-52 gap-0.5 rounded-xl border border-line bg-surface-raised p-1.5">
-            {mobileMore.map((item) => (
-              <li key={item.href}>
-                <NavigationLink item={item} pathname={pathname} />
-              </li>
-            ))}
-          </ul>
-        </details>
+        <MobileMoreNavigation key={pathname} pathname={pathname} />
       </nav>
+    </div>
+  );
+}
+
+function MobileMoreNavigation({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const extraPage = mobileMore.some((item) => item.href === pathname);
+
+  useEffect(() => {
+    if (!open) return;
+    function closeOnOutsidePress(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !menuRef.current?.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", closeOnOutsidePress, true);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsidePress, true);
+  }, [open]);
+
+  return (
+    <div
+      ref={menuRef}
+      className="relative"
+      onKeyDown={(event) => {
+        if (!open) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setOpen(false);
+          buttonRef.current?.focus();
+        } else if (event.key === "Tab") {
+          requestAnimationFrame(() => {
+            if (!menuRef.current?.contains(document.activeElement))
+              setOpen(false);
+          });
+        }
+      }}
+    >
+      <button
+        type="button"
+        ref={buttonRef}
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        className={`flex min-h-11 w-full cursor-pointer items-center justify-center gap-1 rounded-lg px-1.5 text-sm font-medium transition-colors ${
+          open || extraPage
+            ? "bg-owner-soft font-semibold text-owner"
+            : "text-ink-muted hover:bg-surface hover:text-ink"
+        }`}
+      >
+        עוד
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          className={open ? "rotate-180" : undefined}
+        >
+          <path
+            d="m6 9 6 6 6-6"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      <ul
+        id={listId}
+        hidden={!open}
+        className="absolute end-0 top-full z-10 mt-2 max-h-[50dvh] w-52 space-y-0.5 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface-raised p-1.5"
+      >
+        {mobileMore.map((item) => (
+          <li key={item.href}>
+            <NavigationLink
+              item={item}
+              pathname={pathname}
+              onSelect={() => {
+                setOpen(false);
+                if (item.href === pathname) buttonRef.current?.focus();
+              }}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

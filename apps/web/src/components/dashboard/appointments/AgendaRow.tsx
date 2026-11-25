@@ -80,7 +80,7 @@ export function AgendaRow({
 
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="break-words font-semibold text-ink">
+          <span className="min-w-0 font-semibold [overflow-wrap:anywhere] text-ink">
             {appointment.serviceName}
           </span>
           <span
@@ -95,7 +95,9 @@ export function AgendaRow({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <bdi className="break-words text-ink">{appointment.clientName}</bdi>
+          <bdi className="min-w-0 [overflow-wrap:anywhere] text-ink">
+            {appointment.clientName}
+          </bdi>
           <a
             href={`tel:${appointment.clientPhone}`}
             dir="ltr"
