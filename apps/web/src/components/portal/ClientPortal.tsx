@@ -52,6 +52,27 @@ export function ClientPortal({ name }: { name: string | null }) {
         <p className="text-ink-muted">כאן תוכלו לעקוב אחר התורים שלכם.</p>
       </div>
 
+      {(businesses.length > 0 || businessesQuery.isError) && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            העסקים שלי
+          </h2>
+          {businessesQuery.isError && !businessesQuery.data ? (
+            <QueryFailure
+              message="לא הצלחנו לטעון את העסקים שלכם."
+              onRetry={() => void businessesQuery.refetch()}
+              retrying={businessesQuery.isFetching}
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {businesses.map((business) => (
+                <MyBusinessCard key={business.id} business={business} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-semibold tracking-tight text-ink">
           התורים הבאים
@@ -69,7 +90,7 @@ export function ClientPortal({ name }: { name: string | null }) {
             <p className="font-medium">אין לכם תורים קרובים.</p>
             <p className="mt-1 text-sm text-ink-muted">
               {businesses.length > 0
-                ? "אפשר לקבוע תור נוסף דרך העסקים שלכם בהמשך העמוד."
+                ? "אפשר לקבוע תור נוסף דרך ״העסקים שלי״ למעלה."
                 : "כדי לקבוע תור, פתחו את קישור ההזמנה שקיבלתם מהעסק."}
             </p>
           </div>
@@ -95,27 +116,6 @@ export function ClientPortal({ name }: { name: string | null }) {
           ))
         )}
       </section>
-
-      {(businesses.length > 0 || businessesQuery.isError) && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xl font-semibold tracking-tight text-ink">
-            העסקים שלי
-          </h2>
-          {businessesQuery.isError && !businessesQuery.data ? (
-            <QueryFailure
-              message="לא הצלחנו לטעון את העסקים שלכם."
-              onRetry={() => void businessesQuery.refetch()}
-              retrying={businessesQuery.isFetching}
-            />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {businesses.map((business) => (
-                <MyBusinessCard key={business.id} business={business} />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
 
       {(past.length > 0 || pastQuery.isLoading || pastQuery.isError) && (
         <section className="flex flex-col gap-3">
