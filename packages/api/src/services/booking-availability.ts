@@ -1,23 +1,30 @@
-import { and, eq, gt, isNull, lt, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, ne, or } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { db, tables } from "@spotz/db";
+import type { AvailabilityDay } from "../schemas/availability";
 
-/** Read the shared business hours and blocks, and bookings for one calendar. */
+/** Read the effective weekly hours, shared/personal blocks and bookings for one calendar. */
 export async function loadBookingSchedule(
   businessId: string,
-  staffMemberId: string | undefined,
+  calendar: {
+    staffMemberId: string | undefined;
+    weeklyHours: AvailabilityDay[] | null;
+  },
   start: DateTime,
   end: DateTime,
+  reader: Pick<typeof db, "select"> = db,
 ) {
   const { appointments, blockedPeriods, workingHours } = tables;
+  const { staffMemberId, weeklyHours } = calendar;
   const startAt = start.toJSDate();
   const endAt = end.toJSDate();
   const [week, booked, blocked] = await Promise.all([
-    db
-      .select()
-      .from(workingHours)
-      .where(eq(workingHours.businessId, businessId)),
-    db
+    weeklyHours ??
+      reader
+        .select()
+        .from(workingHours)
+        .where(eq(workingHours.businessId, businessId)),
+    reader
       .select({ startAt: appointments.startAt, endAt: appointments.endAt })
       .from(appointments)
       .where(
@@ -31,12 +38,18 @@ export async function loadBookingSchedule(
           gt(appointments.endAt, startAt),
         ),
       ),
-    db
+    reader
       .select({ startAt: blockedPeriods.startAt, endAt: blockedPeriods.endAt })
       .from(blockedPeriods)
       .where(
         and(
           eq(blockedPeriods.businessId, businessId),
+          staffMemberId
+            ? or(
+                isNull(blockedPeriods.staffMemberId),
+                eq(blockedPeriods.staffMemberId, staffMemberId),
+              )
+            : isNull(blockedPeriods.staffMemberId),
           lt(blockedPeriods.startAt, endAt),
           gt(blockedPeriods.endAt, startAt),
         ),

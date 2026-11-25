@@ -24,6 +24,12 @@ interface PublicServicesProps {
 }
 
 type CalendarOption = { id: string | null; name: string };
+function offersService(
+  member: PublicBusinessData["staffMembers"][number],
+  serviceId: string,
+) {
+  return member.serviceIds === null || member.serviceIds.includes(serviceId);
+}
 const steps = [
   "בחירת שירות",
   "בחירת איש צוות",
@@ -225,6 +231,10 @@ function BookingFlow({
                 service={item}
                 authState={authState}
                 slug={slug}
+                bookable={
+                  Boolean(ownerBookingName) ||
+                  staffMembers.some((member) => offersService(member, item.id))
+                }
                 onSelect={() => selectService(item.id)}
               />
             </li>
@@ -235,33 +245,44 @@ function BookingFlow({
   } else if (step === 1) {
     const people: CalendarOption[] = ownerBookingName
       ? [{ id: null, name: ownerBookingName }]
-      : staffMembers;
-    content = (
-      <ul className="grid gap-2.5">
-        {people.map((member) => (
-          <li key={member.id ?? "owner"}>
-            <button
-              type="button"
-              onClick={() => selectStaff(member)}
-              className={optionClass}
-            >
-              <span
-                aria-hidden="true"
-                className="grid size-10 shrink-0 place-items-center rounded-full bg-owner-soft font-bold text-owner"
+      : staffMembers.filter(
+          (member) =>
+            serviceId !== undefined && offersService(member, serviceId),
+        );
+    content =
+      people.length === 0 ? (
+        <p
+          role="status"
+          className="rounded-xl bg-surface p-4 text-sm text-ink-muted"
+        >
+          כרגע אין איש צוות שמציע את השירות הזה. חזרו ובחרו שירות אחר.
+        </p>
+      ) : (
+        <ul className="grid gap-2.5">
+          {people.map((member) => (
+            <li key={member.id ?? "owner"}>
+              <button
+                type="button"
+                onClick={() => selectStaff(member)}
+                className={optionClass}
               >
-                {member.name.trim().slice(0, 1)}
-              </span>
-              <span className="min-w-0 grow [overflow-wrap:anywhere]">
-                <span className="block font-semibold text-ink">
-                  <bdi>{member.name}</bdi>
+                <span
+                  aria-hidden="true"
+                  className="grid size-10 shrink-0 place-items-center rounded-full bg-owner-soft font-bold text-owner"
+                >
+                  {member.name.trim().slice(0, 1)}
                 </span>
-              </span>
-              <OptionArrow />
-            </button>
-          </li>
-        ))}
-      </ul>
-    );
+                <span className="min-w-0 grow [overflow-wrap:anywhere]">
+                  <span className="block font-semibold text-ink">
+                    <bdi>{member.name}</bdi>
+                  </span>
+                </span>
+                <OptionArrow />
+              </button>
+            </li>
+          ))}
+        </ul>
+      );
   } else if (step === 2) {
     content = (
       <>
@@ -454,11 +475,13 @@ function ServiceOption({
   service,
   authState,
   slug,
+  bookable,
   onSelect,
 }: {
   service: PublicService;
   authState: BookingAuthState;
   slug: string;
+  bookable: boolean;
   onSelect: () => void;
 }) {
   const returnUrl = `/b/${encodeURIComponent(slug)}?${new URLSearchParams({ booking: service.id })}`;
@@ -476,13 +499,25 @@ function ServiceOption({
             {service.description}
           </span>
         )}
+        {!bookable && (
+          <span className="mt-1 block text-sm font-medium text-ink-muted">
+            השירות אינו זמין כרגע להזמנה
+          </span>
+        )}
       </span>
       <bdi className="shrink-0 text-sm font-bold whitespace-nowrap text-ink tabular-nums sm:text-base">
         {formatPrice(service.priceCents, service.currency)}
       </bdi>
-      <OptionArrow />
+      {bookable && <OptionArrow />}
     </>
   );
+  if (!bookable) {
+    return (
+      <div className="flex w-full items-center gap-3 rounded-xl border border-line bg-surface px-3 py-3 text-start sm:px-4">
+        {details}
+      </div>
+    );
+  }
   if (authState === "guest") {
     return (
       <SignInButton

@@ -98,6 +98,11 @@ export const availabilityRouter = router({
       // Replace the whole week atomically.
       await db.transaction(async (tx) => {
         await tx
+          .select({ id: tables.businesses.id })
+          .from(tables.businesses)
+          .where(eq(tables.businesses.id, business.id))
+          .for("no key update");
+        await tx
           .delete(tables.workingHours)
           .where(eq(tables.workingHours.businessId, business.id));
 

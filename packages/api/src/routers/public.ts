@@ -16,10 +16,15 @@ import {
   loadBookingSchedule,
   slotsForDay,
 } from "../services/booking-availability";
+import { staffAtBusiness, staffServiceIds } from "../services/staff-calendars";
 
 /** Loads public business fields (incl. booking window) by id, or throws NOT_FOUND. */
-async function requireBusiness(businessId: string) {
-  const [business] = await db
+async function requireBusiness(
+  businessId: string,
+  reader: Pick<typeof db, "select"> = db,
+  lock?: "share" | "update",
+) {
+  const query = reader
     .select({
       id: tables.businesses.id,
       timezone: tables.businesses.timezone,
@@ -29,6 +34,7 @@ async function requireBusiness(businessId: string) {
     })
     .from(tables.businesses)
     .where(eq(tables.businesses.id, businessId));
+  const [business] = await (lock ? query.for(lock) : query);
 
   if (!business) {
     throw new TRPCError({ code: "NOT_FOUND", message: "העסק לא נמצא." });
@@ -51,8 +57,13 @@ function bookingWindow(business: {
   return { today, lastDay: manual.isValid && manual > today ? manual : today };
 }
 
-async function findBookableService(businessId: string, serviceId: string) {
-  const [service] = await db
+async function findBookableService(
+  businessId: string,
+  serviceId: string,
+  reader: Pick<typeof db, "select"> = db,
+  lock = false,
+) {
+  const query = reader
     .select({
       id: tables.services.id,
       durationMinutes: tables.services.durationMinutes,
@@ -67,16 +78,22 @@ async function findBookableService(businessId: string, serviceId: string) {
         eq(tables.services.isActive, true),
       ),
     );
+  const [service] = await (lock ? query.for("share") : query);
   return service;
 }
 
-async function isBookableStaff(
+async function findBookableCalendar(
   businessId: string,
   staffMemberId: string | undefined,
+  serviceId: string,
   reader: Pick<typeof db, "select"> = db,
 ) {
   const [member] = await reader
-    .select({ id: tables.staffMembers.id })
+    .select({
+      id: tables.staffMembers.id,
+      weeklyHours: tables.staffMembers.weeklyHours,
+      serviceIds: staffServiceIds,
+    })
     .from(tables.staffMembers)
     .where(
       and(
@@ -85,7 +102,15 @@ async function isBookableStaff(
       ),
     )
     .limit(1);
-  return staffMemberId ? Boolean(member) : !member;
+  if (!staffMemberId)
+    return member ? null : { staffMemberId, weeklyHours: null };
+  if (
+    !member ||
+    (member.serviceIds !== null && !member.serviceIds.includes(serviceId))
+  ) {
+    return null;
+  }
+  return { staffMemberId: member.id, weeklyHours: member.weeklyHours };
 }
 
 const staffChangedMessage = "רשימת הצוות השתנתה. רעננו את הדף ובחרו איש צוות.";
@@ -145,6 +170,7 @@ export const publicRouter = router({
           .select({
             id: tables.staffMembers.id,
             name: tables.staffMembers.name,
+            serviceIds: staffServiceIds,
           })
           .from(tables.staffMembers)
           .where(eq(tables.staffMembers.businessId, business.id))
@@ -187,11 +213,11 @@ export const publicRouter = router({
     )
     .query(async ({ input }) => {
       const business = await requireBusiness(input.businessId);
-      const [service, staffAllowed] = await Promise.all([
+      const [service, calendar] = await Promise.all([
         findBookableService(business.id, input.serviceId),
-        isBookableStaff(business.id, input.staffMemberId),
+        findBookableCalendar(business.id, input.staffMemberId, input.serviceId),
       ]);
-      if (!service || !staffAllowed) return [];
+      if (!service || !calendar) return [];
 
       const now = DateTime.now().setZone(business.timezone);
       const month = DateTime.fromISO(input.month, {
@@ -207,7 +233,7 @@ export const publicRouter = router({
 
       const schedule = await loadBookingSchedule(
         business.id,
-        input.staffMemberId,
+        calendar,
         start,
         end,
       );
@@ -227,11 +253,11 @@ export const publicRouter = router({
     .input(slotDateSchema)
     .query(async ({ input }) => {
       const business = await requireBusiness(input.businessId);
-      const [service, staffAllowed] = await Promise.all([
+      const [service, calendar] = await Promise.all([
         findBookableService(business.id, input.serviceId),
-        isBookableStaff(business.id, input.staffMemberId),
+        findBookableCalendar(business.id, input.staffMemberId, input.serviceId),
       ]);
-      if (!service || !staffAllowed) return [];
+      if (!service || !calendar) return [];
 
       const day = DateTime.fromISO(input.date, {
         zone: business.timezone,
@@ -241,7 +267,7 @@ export const publicRouter = router({
 
       const schedule = await loadBookingSchedule(
         business.id,
-        input.staffMemberId,
+        calendar,
         day,
         day.plus({ days: 1 }),
       );
@@ -260,8 +286,6 @@ export const publicRouter = router({
   createAppointment: protectedProcedure
     .input(createAppointmentSchema)
     .mutation(async ({ ctx, input }) => {
-      const business = await requireBusiness(input.businessId);
-
       // ctx.user is loaded once per request in createClerkContext — no re-query.
       const user = ctx.user;
       if (!user) {
@@ -282,78 +306,97 @@ export const publicRouter = router({
       }
       const linkedUserId = user.id;
 
-      const [service, staffAllowed] = await Promise.all([
-        findBookableService(business.id, input.serviceId),
-        isBookableStaff(business.id, input.staffMemberId),
-      ]);
-      if (!service) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "השירות לא נמצא." });
-      }
-      if (!staffAllowed) {
-        throw new TRPCError({
-          code: input.staffMemberId ? "NOT_FOUND" : "CONFLICT",
-          message: input.staffMemberId
-            ? "איש הצוות לא נמצא בעסק."
-            : staffChangedMessage,
-        });
-      }
-
-      const startAt = DateTime.fromISO(`${input.date}T${input.time}`, {
-        zone: business.timezone,
-      });
-      if (!startAt.isValid) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "מועד לא תקין." });
-      }
-      const day = startAt.startOf("day");
-      const { today, lastDay } = bookingWindow(business);
-      if (day < today || day > lastDay) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "התאריך שנבחר מחוץ לטווח ההזמנות.",
-        });
-      }
-      const endAt = startAt.plus({ minutes: service.durationMinutes });
-
-      // Re-validate availability server-side (working hours + no overlap).
-      const schedule = await loadBookingSchedule(
-        business.id,
-        input.staffMemberId,
-        day,
-        day.plus({ days: 1 }),
-      );
-      const openSlots = slotsForDay(
-        day,
-        service.durationMinutes,
-        schedule,
-        DateTime.now(),
-      );
-      if (!openSlots.includes(input.time)) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "המועד שנבחר אינו פנוי. נסו מועד אחר.",
-        });
-      }
-
       let appointment: {
         id: string;
         status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
       };
       try {
         appointment = await db.transaction(async (tx) => {
-          if (!input.staffMemberId) {
-            // The first staff insert takes a key-share lock on the same business
-            // through its foreign key. Recheck after locking the business row.
-            await tx
-              .select({ id: tables.businesses.id })
-              .from(tables.businesses)
-              .where(eq(tables.businesses.id, business.id))
-              .for("update");
-            if (!(await isBookableStaff(business.id, undefined, tx))) {
+          // Booking and schedule edits lock their respective calendars. The
+          // owner fallback also locks against adding the first staff member.
+          const business = await requireBusiness(
+            input.businessId,
+            tx,
+            input.staffMemberId ? "share" : "update",
+          );
+          if (input.staffMemberId) {
+            const [member] = await tx
+              .select({ id: tables.staffMembers.id })
+              .from(tables.staffMembers)
+              .where(staffAtBusiness(business.id, input.staffMemberId))
+              .for("share");
+            if (!member) {
               throw new TRPCError({
-                code: "CONFLICT",
-                message: staffChangedMessage,
+                code: "NOT_FOUND",
+                message: "איש הצוות לא נמצא בעסק.",
               });
             }
+          }
+
+          const service = await findBookableService(
+            business.id,
+            input.serviceId,
+            tx,
+            true,
+          );
+          if (!service) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "השירות לא נמצא.",
+            });
+          }
+          const calendar = await findBookableCalendar(
+            business.id,
+            input.staffMemberId,
+            service.id,
+            tx,
+          );
+          if (!calendar) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: input.staffMemberId
+                ? "איש הצוות כבר לא מציע את השירות הזה. בחרו איש צוות אחר."
+                : staffChangedMessage,
+            });
+          }
+
+          const startAt = DateTime.fromISO(`${input.date}T${input.time}`, {
+            zone: business.timezone,
+          });
+          if (!startAt.isValid) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "מועד לא תקין.",
+            });
+          }
+          const day = startAt.startOf("day");
+          const { today, lastDay } = bookingWindow(business);
+          if (day < today || day > lastDay) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "התאריך שנבחר מחוץ לטווח ההזמנות.",
+            });
+          }
+          const endAt = startAt.plus({ minutes: service.durationMinutes });
+          const schedule = await loadBookingSchedule(
+            business.id,
+            calendar,
+            day,
+            day.plus({ days: 1 }),
+            tx,
+          );
+          if (
+            !slotsForDay(
+              day,
+              service.durationMinutes,
+              schedule,
+              DateTime.now(),
+            ).includes(input.time)
+          ) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "המועד שנבחר אינו פנוי. נסו מועד אחר.",
+            });
           }
 
           // Keep one booking contact per (business, authenticated user). Phone is

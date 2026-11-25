@@ -15,14 +15,22 @@ function todayStr(): string {
 
 interface BlockedPeriodFormProps {
   onClose: () => void;
+  staffMemberId?: string;
 }
 
-export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
+export function BlockedPeriodForm({
+  onClose,
+  staffMemberId,
+}: BlockedPeriodFormProps) {
   const utils = trpc.useUtils();
 
   const create = trpc.blocks.createBlockedPeriod.useMutation({
     onSuccess: () => {
-      void utils.blocks.getBlockedPeriods.invalidate();
+      void utils.blocks.getBlockedPeriods.invalidate(
+        staffMemberId ? { staffMemberId } : undefined,
+      );
+      void utils.public.getAvailableSlots.invalidate();
+      void utils.public.getAvailableDates.invalidate();
       onClose();
     },
   });
@@ -48,7 +56,9 @@ export function BlockedPeriodForm({ onClose }: BlockedPeriodFormProps) {
 
   return (
     <form
-      onSubmit={handleSubmit((values) => create.mutate(values))}
+      onSubmit={handleSubmit((values) =>
+        create.mutate({ ...values, staffMemberId }),
+      )}
       className="flex flex-col gap-5"
     >
       <label className="flex cursor-pointer items-center gap-3">

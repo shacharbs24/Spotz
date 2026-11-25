@@ -65,7 +65,7 @@ export function StaffManager() {
         className="rounded-xl border border-line bg-surface-raised p-4 sm:p-5"
       >
         <h2 id="staff-list-heading" className="mb-2 text-lg font-semibold">
-          שמות בדף ההזמנות
+          אנשי צוות בדף ההזמנות
         </h2>
         <ul className="divide-y divide-line">
           {staff.data.members.length === 0 ? (
@@ -94,8 +94,7 @@ export function StaffManager() {
             הוספת איש צוות
           </h2>
           <p className="mt-1 text-sm leading-6 text-ink-muted">
-            לכל איש צוות יש יומן משלו. כולם חולקים את השירותים, שעות הפעילות
-            והחסימות של העסק.
+            לכל איש צוות יש יומן משלו. אפשר להגדיר לו שעות, חסימות ושירותים.
           </p>
         </div>
         <NameForm
@@ -163,7 +162,7 @@ function EditableStaffName({
   return (
     <li className="grid gap-2 py-2">
       {draft === null ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="min-w-0">
             <p className="font-semibold [overflow-wrap:anywhere]">
               <bdi>{name}</bdi>
@@ -174,19 +173,30 @@ function EditableStaffName({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            ref={editButton}
-            aria-label={`עריכת שם לתצוגה עבור ${name}`}
-            onClick={() => {
-              rename.reset();
-              setSaved(false);
-              setDraft(name);
-            }}
-            className={secondaryAction}
-          >
-            עריכת שם
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {memberId && (
+              <Link
+                href={`/dashboard/staff/${memberId}`}
+                aria-label={`זמינות ושירותים עבור ${name}`}
+                className={secondaryAction}
+              >
+                זמינות ושירותים
+              </Link>
+            )}
+            <button
+              type="button"
+              ref={editButton}
+              aria-label={`עריכת שם לתצוגה עבור ${name}`}
+              onClick={() => {
+                rename.reset();
+                setSaved(false);
+                setDraft(name);
+              }}
+              className={secondaryAction}
+            >
+              עריכת שם
+            </button>
+          </div>
         </div>
       ) : (
         <NameForm

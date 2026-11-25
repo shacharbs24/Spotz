@@ -1,10 +1,45 @@
-import { eq, and, asc, gte } from "drizzle-orm";
+import { eq, and, asc, gte, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, protectedProcedure } from "../trpc";
 import { createBlockedPeriodSchema } from "../schemas/block";
+import { staffAtBusiness } from "../services/staff-calendars";
+
+const staffScope = z.object({ staffMemberId: z.string().uuid().optional() });
+
+function blocksForCalendar(
+  businessId: string,
+  staffMemberId: string | undefined,
+) {
+  return and(
+    eq(tables.blockedPeriods.businessId, businessId),
+    staffMemberId
+      ? eq(tables.blockedPeriods.staffMemberId, staffMemberId)
+      : isNull(tables.blockedPeriods.staffMemberId),
+  );
+}
+
+async function lockCalendar(
+  tx: Pick<typeof db, "select">,
+  businessId: string,
+  staffMemberId: string | undefined,
+) {
+  const [calendar] = staffMemberId
+    ? await tx
+        .select({ id: tables.staffMembers.id })
+        .from(tables.staffMembers)
+        .where(staffAtBusiness(businessId, staffMemberId))
+        .for("no key update")
+    : await tx
+        .select({ id: tables.businesses.id })
+        .from(tables.businesses)
+        .where(eq(tables.businesses.id, businessId))
+        .for("no key update");
+  if (!calendar)
+    throw new TRPCError({ code: "NOT_FOUND", message: "היומן לא נמצא." });
+}
 
 /** Resolves the authenticated owner's business, enforcing the OWNER role. */
 async function requireOwnerBusiness(clerkUserId: string) {
@@ -76,44 +111,46 @@ function describeBlock(
 
 export const blocksRouter = router({
   /** Upcoming/ongoing blocks for the owner's business, ordered by start. */
-  getBlockedPeriods: protectedProcedure.query(async ({ ctx }) => {
-    const [user] = await db
-      .select()
-      .from(tables.users)
-      .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
-    if (!user || user.role !== "OWNER") return [];
+  getBlockedPeriods: protectedProcedure
+    .input(staffScope.optional())
+    .query(async ({ ctx, input }) => {
+      const [user] = await db
+        .select()
+        .from(tables.users)
+        .where(eq(tables.users.clerkUserId, ctx.clerkUserId));
+      if (!user || user.role !== "OWNER") return [];
 
-    const [business] = await db
-      .select()
-      .from(tables.businesses)
-      .where(eq(tables.businesses.ownerId, user.id));
-    if (!business) return [];
+      const [business] = await db
+        .select()
+        .from(tables.businesses)
+        .where(eq(tables.businesses.ownerId, user.id));
+      if (!business) return [];
 
-    const rows = await db
-      .select({
-        id: tables.blockedPeriods.id,
-        startAt: tables.blockedPeriods.startAt,
-        endAt: tables.blockedPeriods.endAt,
-        reason: tables.blockedPeriods.reason,
-      })
-      .from(tables.blockedPeriods)
-      .where(
-        and(
-          eq(tables.blockedPeriods.businessId, business.id),
-          gte(tables.blockedPeriods.endAt, new Date()),
-        ),
-      )
-      .orderBy(asc(tables.blockedPeriods.startAt));
+      const rows = await db
+        .select({
+          id: tables.blockedPeriods.id,
+          startAt: tables.blockedPeriods.startAt,
+          endAt: tables.blockedPeriods.endAt,
+          reason: tables.blockedPeriods.reason,
+        })
+        .from(tables.blockedPeriods)
+        .where(
+          and(
+            blocksForCalendar(business.id, input?.staffMemberId),
+            gte(tables.blockedPeriods.endAt, new Date()),
+          ),
+        )
+        .orderBy(asc(tables.blockedPeriods.startAt));
 
-    return rows.map((row) => ({
-      id: row.id,
-      reason: row.reason,
-      ...describeBlock(row.startAt, row.endAt, business.timezone),
-    }));
-  }),
+      return rows.map((row) => ({
+        id: row.id,
+        reason: row.reason,
+        ...describeBlock(row.startAt, row.endAt, business.timezone),
+      }));
+    }),
 
   createBlockedPeriod: protectedProcedure
-    .input(createBlockedPeriodSchema)
+    .input(createBlockedPeriodSchema.and(staffScope))
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);
       const zone = business.timezone;
@@ -141,38 +178,44 @@ export const blocksRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "טווח לא תקין." });
       }
 
-      const [created] = await db
-        .insert(tables.blockedPeriods)
-        .values({
-          businessId: business.id,
-          startAt: startAt.toJSDate(),
-          endAt: endAt.toJSDate(),
-          reason: input.reason?.trim() || null,
-        })
-        .returning({ id: tables.blockedPeriods.id });
-      return created;
+      return db.transaction(async (tx) => {
+        await lockCalendar(tx, business.id, input.staffMemberId);
+        const [created] = await tx
+          .insert(tables.blockedPeriods)
+          .values({
+            businessId: business.id,
+            staffMemberId: input.staffMemberId,
+            startAt: startAt.toJSDate(),
+            endAt: endAt.toJSDate(),
+            reason: input.reason?.trim() || null,
+          })
+          .returning({ id: tables.blockedPeriods.id });
+        return created;
+      });
     }),
 
   deleteBlockedPeriod: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(staffScope.extend({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);
 
-      const [block] = await db
-        .select({
-          id: tables.blockedPeriods.id,
-          businessId: tables.blockedPeriods.businessId,
-        })
-        .from(tables.blockedPeriods)
-        .where(eq(tables.blockedPeriods.id, input.id));
-
-      if (!block || block.businessId !== business.id) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "החסימה לא נמצאה." });
-      }
-
-      await db
-        .delete(tables.blockedPeriods)
-        .where(eq(tables.blockedPeriods.id, input.id));
-      return { id: input.id };
+      return db.transaction(async (tx) => {
+        await lockCalendar(tx, business.id, input.staffMemberId);
+        const [block] = await tx
+          .delete(tables.blockedPeriods)
+          .where(
+            and(
+              blocksForCalendar(business.id, input.staffMemberId),
+              eq(tables.blockedPeriods.id, input.id),
+            ),
+          )
+          .returning({ id: tables.blockedPeriods.id });
+        if (!block)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "החסימה לא נמצאה.",
+          });
+        return block;
+      });
     }),
 });

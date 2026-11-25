@@ -4,14 +4,24 @@ import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import type { BlockedPeriodRow } from "@/trpc/types";
 import { Modal } from "@/components/ui/Modal";
+import { QueryFailure } from "@/components/ui/QueryFailure";
 import { BlockedPeriodForm } from "./BlockedPeriodForm";
 
-export function BlockedPeriodsManager() {
+export function BlockedPeriodsManager({
+  staffMemberId,
+}: {
+  staffMemberId?: string;
+}) {
   const utils = trpc.useUtils();
-  const blocksQuery = trpc.blocks.getBlockedPeriods.useQuery();
+  const input = staffMemberId ? { staffMemberId } : undefined;
+  const blocksQuery = trpc.blocks.getBlockedPeriods.useQuery(input);
 
   const deleteBlock = trpc.blocks.deleteBlockedPeriod.useMutation({
-    onSuccess: () => utils.blocks.getBlockedPeriods.invalidate(),
+    onSuccess: () => {
+      void utils.public.getAvailableDates.invalidate();
+      void utils.public.getAvailableSlots.invalidate();
+      return utils.blocks.getBlockedPeriods.invalidate(input);
+    },
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,6 +48,12 @@ export function BlockedPeriodsManager() {
 
       {blocksQuery.isLoading ? (
         <ListSkeleton />
+      ) : blocksQuery.isError && !blocksQuery.data ? (
+        <QueryFailure
+          message="לא הצלחנו לטעון את החסימות."
+          onRetry={() => void blocksQuery.refetch()}
+          retrying={blocksQuery.isFetching}
+        />
       ) : blocks.length === 0 ? (
         <EmptyState onAdd={() => setDialogOpen(true)} />
       ) : (
@@ -46,7 +62,9 @@ export function BlockedPeriodsManager() {
             <BlockCard
               key={block.id}
               block={block}
-              onDelete={() => deleteBlock.mutate({ id: block.id })}
+              onDelete={() =>
+                deleteBlock.mutate({ id: block.id, staffMemberId })
+              }
               isDeleting={
                 deleteBlock.isPending && deleteBlock.variables?.id === block.id
               }
@@ -54,13 +72,21 @@ export function BlockedPeriodsManager() {
           ))}
         </ul>
       )}
+      {deleteBlock.error && (
+        <p role="alert" className="text-sm text-danger">
+          {deleteBlock.error.message}
+        </p>
+      )}
 
       <Modal
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         title="חסימה חדשה"
       >
-        <BlockedPeriodForm onClose={() => setDialogOpen(false)} />
+        <BlockedPeriodForm
+          staffMemberId={staffMemberId}
+          onClose={() => setDialogOpen(false)}
+        />
       </Modal>
     </div>
   );

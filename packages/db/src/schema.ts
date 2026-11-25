@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   unique,
   foreignKey,
+  primaryKey,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -89,6 +90,16 @@ export const staffMembers = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    weeklyHours: jsonb("weekly_hours").$type<
+      {
+        dayOfWeek: number;
+        startTime: string;
+        endTime: string;
+        isClosed: boolean;
+        breaks: { start: string; end: string }[];
+      }[]
+    >(),
+    usesAllServices: boolean("uses_all_services").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -116,25 +127,60 @@ export const businessPhotos = pgTable("business_photos", {
 });
 
 // --- Services ---
-export const services = pgTable("services", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  businessId: uuid("business_id")
-    .notNull()
-    .references(() => businesses.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description"), // תיאור חופשי — תומך בעברית
-  durationMinutes: integer("duration_minutes").notNull().default(30),
-  priceCents: integer("price_cents").notNull(), // אגורות — תמיד שלמים, לא float
-  currency: text("currency").notNull().default("ILS"),
-  isActive: boolean("is_active").notNull().default(true),
-  // When true, bookings for this service start as PENDING and await manual owner
-  // approval; when false they are auto-confirmed (CONFIRMED) on creation.
-  // Defaults to manual approval to preserve the pre-feature booking behavior.
-  requiresApproval: boolean("requires_approval").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const services = pgTable(
+  "services",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"), // תיאור חופשי — תומך בעברית
+    durationMinutes: integer("duration_minutes").notNull().default(30),
+    priceCents: integer("price_cents").notNull(), // אגורות — תמיד שלמים, לא float
+    currency: text("currency").notNull().default("ILS"),
+    isActive: boolean("is_active").notNull().default(true),
+    // When true, bookings for this service start as PENDING and await manual owner
+    // approval; when false they are auto-confirmed (CONFIRMED) on creation.
+    // Defaults to manual approval to preserve the pre-feature booking behavior.
+    requiresApproval: boolean("requires_approval").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    businessServiceKey: unique("services_business_service_key").on(
+      t.businessId,
+      t.id,
+    ),
+  }),
+);
+
+export const staffServices = pgTable(
+  "staff_services",
+  {
+    businessId: uuid("business_id").notNull(),
+    staffMemberId: uuid("staff_member_id").notNull(),
+    serviceId: uuid("service_id").notNull(),
+  },
+  (t) => ({
+    key: primaryKey({ columns: [t.staffMemberId, t.serviceId] }),
+    member: foreignKey({
+      name: "staff_services_business_member_fkey",
+      columns: [t.businessId, t.staffMemberId],
+      foreignColumns: [staffMembers.businessId, staffMembers.id],
+    }).onDelete("cascade"),
+    service: foreignKey({
+      name: "staff_services_business_service_fkey",
+      columns: [t.businessId, t.serviceId],
+      foreignColumns: [services.businessId, services.id],
+    }).onDelete("cascade"),
+    byService: index("idx_staff_services_service").on(
+      t.businessId,
+      t.serviceId,
+    ),
+  }),
+);
 
 // --- Working Hours (שורה לכל יום בשבוע) ---
 export const workingHours = pgTable(
@@ -247,6 +293,7 @@ export const blockedPeriods = pgTable(
     businessId: uuid("business_id")
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
+    staffMemberId: uuid("staff_member_id"),
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     reason: text("reason"), // הערה חופשית — "חופשה", "פגישה" וכו'
@@ -259,6 +306,11 @@ export const blockedPeriods = pgTable(
       t.businessId,
       t.startAt,
     ),
+    staffMemberBusiness: foreignKey({
+      name: "blocked_periods_business_staff_fkey",
+      columns: [t.businessId, t.staffMemberId],
+      foreignColumns: [staffMembers.businessId, staffMembers.id],
+    }).onDelete("cascade"),
   }),
 );
 

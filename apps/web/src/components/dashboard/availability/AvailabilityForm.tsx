@@ -10,7 +10,10 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { timeRegex } from "@spotz/api/schemas/availability";
+import {
+  timeRegex,
+  type AvailabilityDay,
+} from "@spotz/api/schemas/availability";
 import { trpc } from "@/trpc/client";
 
 const DAY_NAMES = [
@@ -61,7 +64,38 @@ export function AvailabilityForm() {
     onSuccess: () => utils.availability.getOurAvailability.invalidate(),
   });
 
-  const data = availabilityQuery.data;
+  if (businessQuery.isLoading || availabilityQuery.isLoading) {
+    return <FormSkeleton />;
+  }
+
+  if (businessQuery.data === null) {
+    return <NoBusinessNotice />;
+  }
+
+  return (
+    <WeeklyHoursForm
+      days={availabilityQuery.data}
+      onSave={(days) => update.mutate({ days })}
+      pending={update.isPending}
+      saved={update.isSuccess}
+      error={update.error?.message}
+    />
+  );
+}
+
+export function WeeklyHoursForm({
+  days,
+  onSave,
+  pending,
+  saved,
+  error,
+}: {
+  days?: AvailabilityDay[];
+  onSave: (days: AvailabilityDay[]) => void;
+  pending: boolean;
+  saved?: boolean;
+  error?: string;
+}) {
   const {
     control,
     register,
@@ -70,9 +104,9 @@ export function AvailabilityForm() {
   } = useForm<AvailabilityFormValues>({
     resolver: zodResolver(availabilityFormSchema),
     defaultValues: { days: FALLBACK_DAYS },
-    values: data
+    values: days
       ? {
-          days: data.map((day) => ({
+          days: days.map((day) => ({
             dayOfWeek: day.dayOfWeek,
             isOpen: !day.isClosed,
             startTime: day.startTime,
@@ -85,24 +119,16 @@ export function AvailabilityForm() {
   const { fields } = useFieldArray({ control, name: "days" });
   const watchedDays = useWatch({ control, name: "days" });
 
-  if (businessQuery.isLoading || availabilityQuery.isLoading) {
-    return <FormSkeleton />;
-  }
-
-  if (businessQuery.data === null) {
-    return <NoBusinessNotice />;
-  }
-
   const onSubmit = (values: AvailabilityFormValues) => {
-    update.mutate({
-      days: values.days.map((day) => ({
+    onSave(
+      values.days.map((day) => ({
         dayOfWeek: day.dayOfWeek,
         startTime: day.startTime,
         endTime: day.endTime,
         isClosed: !day.isOpen,
         breaks: day.breaks,
       })),
-    });
+    );
   };
 
   return (
@@ -125,15 +151,15 @@ export function AvailabilityForm() {
       </ul>
 
       <div className="flex flex-col gap-3 px-3 pb-2">
-        {update.error && (
+        {error && (
           <p
             role="alert"
             className="rounded-xl bg-client-soft px-4 py-3 text-sm text-client"
           >
-            {update.error.message}
+            {error}
           </p>
         )}
-        {update.isSuccess && (
+        {saved && (
           <p
             role="status"
             className="rounded-xl bg-owner-soft px-4 py-3 text-sm text-owner"
@@ -144,10 +170,10 @@ export function AvailabilityForm() {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={update.isPending}
+            disabled={pending}
             className="inline-flex items-center gap-2 rounded-full bg-owner px-6 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {update.isPending ? "שומר…" : "שמירת שעות הפעילות"}
+            {pending ? "שומר…" : "שמירת שעות הפעילות"}
           </button>
         </div>
       </div>
@@ -199,6 +225,7 @@ function DayRow({
             <input
               type="time"
               dir="ltr"
+              aria-label={`שעת פתיחה, ${DAY_NAMES[dayOfWeek]}`}
               {...register(`days.${index}.startTime`)}
               className={timeInputClass}
             />
@@ -206,6 +233,7 @@ function DayRow({
             <input
               type="time"
               dir="ltr"
+              aria-label={`שעת סיום, ${DAY_NAMES[dayOfWeek]}`}
               {...register(`days.${index}.endTime`)}
               className={timeInputClass}
             />
@@ -233,6 +261,7 @@ function DayRow({
               <input
                 type="time"
                 dir="ltr"
+                aria-label={`תחילת הפסקה ${breakIndex + 1}, ${DAY_NAMES[dayOfWeek]}`}
                 {...register(`days.${index}.breaks.${breakIndex}.start`)}
                 className={timeInputClass}
               />
@@ -240,6 +269,7 @@ function DayRow({
               <input
                 type="time"
                 dir="ltr"
+                aria-label={`סיום הפסקה ${breakIndex + 1}, ${DAY_NAMES[dayOfWeek]}`}
                 {...register(`days.${index}.breaks.${breakIndex}.end`)}
                 className={timeInputClass}
               />
