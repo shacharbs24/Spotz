@@ -27,16 +27,14 @@ export function CopyLinkButton({ slug }: { slug: string }) {
       type="button"
       onClick={handleCopy}
       aria-live="polite"
-      className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+      className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
         copied
           ? "border-success/40 bg-success-soft text-success"
           : "border-line bg-surface-raised text-ink hover:border-owner/40 hover:text-owner"
       }`}
     >
       {copied ? (
-        <>
-          הועתק! <span aria-hidden="true">✅</span>
-        </>
+        "הקישור הועתק"
       ) : (
         <>
           <CopyIcon />
@@ -49,7 +47,13 @@ export function CopyLinkButton({ slug }: { slug: string }) {
 
 function CopyIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <rect
         x="9"
         y="9"

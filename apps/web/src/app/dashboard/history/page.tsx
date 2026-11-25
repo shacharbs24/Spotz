@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { DashboardHeading } from "@/components/dashboard/DashboardHeading";
 import { HistoryList } from "@/components/dashboard/history/HistoryList";
 import { getServerCaller } from "@/trpc/server";
 
@@ -18,28 +18,12 @@ export default async function HistoryPage() {
   }
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10"
-    >
-      <div className="flex flex-col gap-3">
-        <nav className="flex items-center gap-2 text-sm text-ink-muted">
-          <Link href="/dashboard" className="transition-colors hover:text-ink">
-            לוח הבקרה
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span className="text-ink">היסטוריית תורים</span>
-        </nav>
-        <h1 className="text-3xl font-bold tracking-tight text-ink">
-          היסטוריית תורים
-        </h1>
-        <p className="text-ink-muted">
-          תורים שהסתיימו, בוטלו או עברו. חפשו לפי שם לקוח כדי לאתר תור מהעבר.
-        </p>
-      </div>
-
+    <div className="grid w-full max-w-3xl gap-6 sm:gap-8">
+      <DashboardHeading
+        title="היסטוריית תורים"
+        description="חפשו לפי שם לקוח כדי לאתר תור שהסתיים, בוטל או עבר."
+      />
       <HistoryList />
-    </main>
+    </div>
   );
 }

@@ -90,7 +90,10 @@ export function AppointmentsList() {
       </h2>
 
       {appointmentsQuery.isLoading ? (
-        <AgendaSkeleton />
+        <div role="status">
+          <span className="sr-only">טוענים את רשימת התורים…</span>
+          <AgendaSkeleton />
+        </div>
       ) : appointmentsQuery.isError && !appointmentsQuery.data ? (
         <QueryFailure
           message="לא הצלחנו לטעון את התורים לתאריך הזה."
@@ -102,7 +105,7 @@ export function AppointmentsList() {
           אין תורים בתאריך זה.
         </div>
       ) : (
-        <ol className="flex flex-col gap-3">
+        <ol className="divide-y divide-line rounded-xl border border-line bg-surface-raised">
           {appointments.map((appointment) => (
             <AgendaRow
               key={appointment.id}
@@ -113,6 +116,11 @@ export function AppointmentsList() {
               isUpdating={
                 updateStatus.isPending &&
                 updateStatus.variables?.id === appointment.id
+              }
+              updateError={
+                updateStatus.variables?.id === appointment.id
+                  ? updateStatus.error?.message
+                  : undefined
               }
             />
           ))}

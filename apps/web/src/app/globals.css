@@ -41,6 +41,13 @@ body {
   font-family: var(--font-heebo), system-ui, sans-serif;
 }
 
+@media (width < 64rem) {
+  html:has([data-dashboard-shell]) {
+    /* Leave room for the sticky dashboard navigation when labels wrap. */
+    scroll-padding-block-start: 5.5rem;
+  }
+}
+
 .skip-link {
   position: fixed;
   inset-block-start: 0.75rem;
