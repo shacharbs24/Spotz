@@ -8,6 +8,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  footer?: ReactNode;
 }
 
 /**
@@ -15,7 +16,7 @@ interface ModalProps {
  * Escape, and locks background scroll while open. Children mount only while
  * open, so consumers get fresh state on each open.
  */
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -103,7 +104,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         tabIndex={-1}
         className="relative z-10 flex max-h-[90dvh] w-full max-w-xl flex-col rounded-t-2xl bg-surface-raised shadow-soft sm:rounded-2xl"
       >
-        <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-4 sm:px-8 sm:pt-7">
+        <div className="flex shrink-0 items-center justify-between gap-4 px-5 pt-5 pb-4 sm:px-8 sm:pt-7">
           <h2
             id={titleId}
             className="text-xl font-semibold tracking-tight text-ink"
@@ -133,9 +134,10 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             </svg>
           </button>
         </div>
-        <div className="overflow-y-auto overscroll-contain px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-8">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-8">
           {children}
         </div>
+        {footer}
       </div>
     </div>,
     document.body,

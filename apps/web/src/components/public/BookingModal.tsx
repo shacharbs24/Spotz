@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Modal } from "@/components/ui/Modal";
 import { QueryFailure } from "@/components/ui/QueryFailure";
@@ -73,6 +73,8 @@ export function BookingModal({
 }: BookingModalProps) {
   const utils = trpc.useUtils();
   const days = useMemo(() => buildDays(maxBookingDate), [maxBookingDate]);
+  const summaryId = useId();
+  const summaryHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -107,11 +109,22 @@ export function BookingModal({
   const slots = slotsQuery.data ?? [];
   const availableSelection =
     selectedTime !== null && slots.includes(selectedTime);
+  const showSummary =
+    selectedDate !== null &&
+    selectedTime !== null &&
+    availableSelection &&
+    !slotsQuery.isError;
   const visibleDays = days.slice(
     firstVisibleDay,
     firstVisibleDay + DAYS_PER_PAGE,
   );
   const price = formatPrice(service.priceCents, service.currency);
+
+  const handleReview = () => {
+    const heading = summaryHeadingRef.current;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: "start" });
+  };
 
   const handleConfirm = () => {
     if (
@@ -139,6 +152,31 @@ export function BookingModal({
             ? "התור אושר!"
             : "הבקשה נשלחה!"
           : "קביעת תור"
+      }
+      footer={
+        !confirmed &&
+        showSummary && (
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-line bg-surface-raised px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden">
+            <p className="flex items-baseline gap-2 text-sm text-ink-muted">
+              השעה שנבחרה
+              <bdi
+                dir="ltr"
+                className="text-base font-semibold text-ink tabular-nums"
+              >
+                {selectedTime}
+              </bdi>
+            </p>
+            <button
+              type="button"
+              onClick={handleReview}
+              disabled={createAppointment.isPending}
+              aria-controls={summaryId}
+              className="action-primary"
+            >
+              לסיכום התור
+            </button>
+          </div>
+        )
       }
     >
       {confirmed ? (
@@ -306,42 +344,47 @@ export function BookingModal({
                 השעה שבחרתם כבר אינה זמינה. בחרו שעה אחרת.
               </p>
             )}
-          {selectedDate &&
-            selectedTime &&
-            availableSelection &&
-            !slotsQuery.isError && (
-              <section
-                aria-label="סיכום התור"
-                className="flex flex-col gap-3 rounded-xl bg-surface p-4"
+          {showSummary && (
+            <section
+              id={summaryId}
+              aria-labelledby={`${summaryId}-heading`}
+              className="flex flex-col gap-3 rounded-xl bg-surface p-4"
+            >
+              <h3
+                ref={summaryHeadingRef}
+                id={`${summaryId}-heading`}
+                tabIndex={-1}
+                className="scroll-mt-3 rounded-sm font-semibold"
               >
-                <h3 className="font-semibold">סיכום התור</h3>
-                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-                  <dt className="text-ink-muted">שירות</dt>
-                  <dd className="break-words">{service.name}</dd>
-                  <dt className="text-ink-muted">מועד</dt>
-                  <dd>
-                    {formatDateHe(selectedDate)} בשעה{" "}
-                    <bdi dir="ltr" className="tabular-nums">
-                      {selectedTime}
-                    </bdi>
-                  </dd>
-                  <dt className="text-ink-muted">מחיר</dt>
-                  <dd>
-                    <bdi className="font-semibold tabular-nums">{price}</bdi>
-                  </dd>
-                </dl>
-                <button
-                  type="button"
-                  onClick={handleConfirm}
-                  disabled={createAppointment.isPending}
-                  className="action-primary"
-                >
-                  {createAppointment.isPending
-                    ? "שולח את הבקשה…"
-                    : "אישור וקביעת תור"}
-                </button>
-              </section>
-            )}
+                סיכום התור
+              </h3>
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+                <dt className="text-ink-muted">שירות</dt>
+                <dd className="break-words">{service.name}</dd>
+                <dt className="text-ink-muted">מועד</dt>
+                <dd>
+                  {formatDateHe(selectedDate)} בשעה{" "}
+                  <bdi dir="ltr" className="tabular-nums">
+                    {selectedTime}
+                  </bdi>
+                </dd>
+                <dt className="text-ink-muted">מחיר</dt>
+                <dd>
+                  <bdi className="font-semibold tabular-nums">{price}</bdi>
+                </dd>
+              </dl>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={createAppointment.isPending}
+                className="action-primary"
+              >
+                {createAppointment.isPending
+                  ? "שולח את הבקשה…"
+                  : "אישור וקביעת תור"}
+              </button>
+            </section>
+          )}
         </div>
       )}
     </Modal>
