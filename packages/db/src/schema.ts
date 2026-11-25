@@ -58,6 +58,7 @@ export const businesses = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    ownerBookingName: text("owner_booking_name"),
     slug: text("slug").notNull().unique(), // לכתובת ציבורית: /b/[slug]
     description: text("description"),
     imageUrl: text("image_url"), // לוגו/תמונת קאבר — URL חיצוני (R2 בהמשך)

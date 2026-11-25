@@ -1,0 +1,1 @@
+ALTER TABLE "businesses" ADD COLUMN "owner_booking_name" text;

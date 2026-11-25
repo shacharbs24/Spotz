@@ -30,7 +30,7 @@ export default async function PublicBusinessPage({
     notFound();
   }
 
-  const { business, services, staffMembers } = data;
+  const { business, services, staffMembers, ownerBookingName } = data;
   // Rating summary + reviews depend only on business.id; the viewer profile
   // depends only on userId — all three are independent, so fetch in parallel.
   const [ratingSummary, reviews, profile] = await Promise.all([
@@ -145,6 +145,7 @@ export default async function PublicBusinessPage({
           businessId={business.id}
           services={services}
           staffMembers={staffMembers}
+          ownerBookingName={ownerBookingName}
           minBookingDate={business.minBookingDate}
           maxBookingDate={business.maxBookingDate}
           authState={authState}

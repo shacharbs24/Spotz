@@ -15,6 +15,7 @@ interface PublicServicesProps {
   businessId: string;
   services: PublicService[];
   staffMembers: PublicBusinessData["staffMembers"];
+  ownerBookingName: PublicBusinessData["ownerBookingName"];
   minBookingDate: string;
   maxBookingDate: string;
   authState: BookingAuthState;
@@ -23,7 +24,6 @@ interface PublicServicesProps {
 }
 
 type CalendarOption = { id: string | null; name: string };
-const businessCalendar = { id: null, name: "יומן העסק" };
 const steps = [
   "בחירת שירות",
   "בחירת איש צוות",
@@ -65,6 +65,7 @@ function BookingFlow({
   businessId,
   services,
   staffMembers,
+  ownerBookingName,
   minBookingDate,
   maxBookingDate,
   authState,
@@ -140,11 +141,11 @@ function BookingFlow({
 
   function selectStaff(member: CalendarOption) {
     if (member.id !== staff?.id) {
-      setStaff(member);
       setDate(null);
       setTime(null);
       setMonth(minBookingDate.slice(0, 7));
     }
+    setStaff(member);
     goTo(2);
   }
 
@@ -232,10 +233,13 @@ function BookingFlow({
       </>
     );
   } else if (step === 1) {
+    const people: CalendarOption[] = ownerBookingName
+      ? [{ id: null, name: ownerBookingName }]
+      : staffMembers;
     content = (
       <ul className="grid gap-2.5">
-        {[businessCalendar, ...staffMembers].map((member) => (
-          <li key={member.id ?? "business"}>
+        {people.map((member) => (
+          <li key={member.id ?? "owner"}>
             <button
               type="button"
               onClick={() => selectStaff(member)}
@@ -251,11 +255,6 @@ function BookingFlow({
                 <span className="block font-semibold text-ink">
                   <bdi>{member.name}</bdi>
                 </span>
-                {member.id === null && (
-                  <span className="block text-sm text-ink-muted">
-                    היומן הכללי של העסק
-                  </span>
-                )}
               </span>
               <OptionArrow />
             </button>

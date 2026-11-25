@@ -10,27 +10,12 @@ import {
   slotDateSchema,
 } from "../schemas/booking";
 import { normalizeIsraeliPhone } from "../lib/phone";
+import { getBookingOwnerName } from "../lib/booking-owner-name";
+import { hasDatabaseErrorCode } from "../lib/database-errors";
 import {
   loadBookingSchedule,
   slotsForDay,
 } from "../services/booking-availability";
-
-/** Finds a PostgreSQL error code through the small wrapper chain used by ORM drivers. */
-function hasDatabaseErrorCode(error: unknown, expectedCode: string): boolean {
-  let current: unknown = error;
-  for (let depth = 0; depth < 4; depth += 1) {
-    if (!current || typeof current !== "object") return false;
-    if (
-      "code" in current &&
-      typeof current.code === "string" &&
-      current.code === expectedCode
-    ) {
-      return true;
-    }
-    current = "cause" in current ? current.cause : null;
-  }
-  return false;
-}
 
 /** Loads public business fields (incl. booking window) by id, or throws NOT_FOUND. */
 async function requireBusiness(businessId: string) {
@@ -88,19 +73,22 @@ async function findBookableService(businessId: string, serviceId: string) {
 async function isBookableStaff(
   businessId: string,
   staffMemberId: string | undefined,
+  reader: Pick<typeof db, "select"> = db,
 ) {
-  if (!staffMemberId) return true;
-  const [member] = await db
+  const [member] = await reader
     .select({ id: tables.staffMembers.id })
     .from(tables.staffMembers)
     .where(
       and(
-        eq(tables.staffMembers.id, staffMemberId),
         eq(tables.staffMembers.businessId, businessId),
+        staffMemberId ? eq(tables.staffMembers.id, staffMemberId) : undefined,
       ),
-    );
-  return Boolean(member);
+    )
+    .limit(1);
+  return staffMemberId ? Boolean(member) : !member;
 }
+
+const staffChangedMessage = "רשימת הצוות השתנתה. רעננו את הדף ובחרו איש צוות.";
 
 /**
  * Unauthenticated, read-only + booking endpoints for the public surface.
@@ -115,6 +103,8 @@ export const publicRouter = router({
         .select({
           id: tables.businesses.id,
           name: tables.businesses.name,
+          ownerBookingName: tables.businesses.ownerBookingName,
+          ownerFullName: tables.users.fullName,
           slug: tables.businesses.slug,
           description: tables.businesses.description,
           imageUrl: tables.businesses.imageUrl,
@@ -127,6 +117,7 @@ export const publicRouter = router({
           manualOpenUntil: tables.businesses.manualOpenUntil,
         })
         .from(tables.businesses)
+        .innerJoin(tables.users, eq(tables.businesses.ownerId, tables.users.id))
         .where(eq(tables.businesses.slug, input.slug));
 
       if (!business) return null;
@@ -167,6 +158,8 @@ export const publicRouter = router({
         autoOpenCalendar: _a,
         autoOpenDays: _d,
         manualOpenUntil: _m,
+        ownerBookingName: _ownerBookingName,
+        ownerFullName,
         ...publicBusiness
       } = business;
 
@@ -178,6 +171,10 @@ export const publicRouter = router({
         },
         services,
         staffMembers,
+        ownerBookingName:
+          staffMembers.length === 0
+            ? getBookingOwnerName(business, ownerFullName)
+            : null,
       };
     }),
 
@@ -294,8 +291,10 @@ export const publicRouter = router({
       }
       if (!staffAllowed) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "איש הצוות לא נמצא בעסק.",
+          code: input.staffMemberId ? "NOT_FOUND" : "CONFLICT",
+          message: input.staffMemberId
+            ? "איש הצוות לא נמצא בעסק."
+            : staffChangedMessage,
         });
       }
 
@@ -341,6 +340,22 @@ export const publicRouter = router({
       };
       try {
         appointment = await db.transaction(async (tx) => {
+          if (!input.staffMemberId) {
+            // The first staff insert takes a key-share lock on the same business
+            // through its foreign key. Recheck after locking the business row.
+            await tx
+              .select({ id: tables.businesses.id })
+              .from(tables.businesses)
+              .where(eq(tables.businesses.id, business.id))
+              .for("update");
+            if (!(await isBookableStaff(business.id, undefined, tx))) {
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: staffChangedMessage,
+              });
+            }
+          }
+
           // Keep one booking contact per (business, authenticated user). Phone is
           // mutable contact data and must never transfer appointment ownership.
           const [client] = await tx
