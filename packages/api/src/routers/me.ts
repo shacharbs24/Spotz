@@ -19,6 +19,7 @@ const appointmentSelect = {
   status: tables.appointments.status,
   priceCentsSnapshot: tables.appointments.priceCentsSnapshot,
   serviceName: tables.services.name,
+  staffName: tables.staffMembers.name,
   businessName: tables.businesses.name,
   businessPhone: tables.businesses.phone,
   timezone: tables.businesses.timezone,
@@ -76,6 +77,10 @@ export const meRouter = router({
         tables.reviews,
         eq(tables.appointments.id, tables.reviews.appointmentId),
       )
+      .leftJoin(
+        tables.staffMembers,
+        eq(tables.appointments.staffMemberId, tables.staffMembers.id),
+      )
       .where(
         and(
           eq(tables.clients.userId, user.id),
@@ -117,6 +122,10 @@ export const meRouter = router({
         .leftJoin(
           tables.reviews,
           eq(tables.appointments.id, tables.reviews.appointmentId),
+        )
+        .leftJoin(
+          tables.staffMembers,
+          eq(tables.appointments.staffMemberId, tables.staffMembers.id),
         )
         .where(
           and(
@@ -220,6 +229,7 @@ function formatRow(row: {
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
   priceCentsSnapshot: number;
   serviceName: string;
+  staffName: string | null;
   businessName: string;
   businessPhone: string | null;
   timezone: string;
@@ -235,6 +245,7 @@ function formatRow(row: {
     status: row.status,
     priceCentsSnapshot: row.priceCentsSnapshot,
     serviceName: row.serviceName,
+    staffName: row.staffName,
     businessName: row.businessName,
     businessPhone: row.businessPhone,
     // Within the cancellation window → client must call the business instead.

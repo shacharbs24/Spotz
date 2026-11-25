@@ -60,6 +60,11 @@ export default async function ConfirmAppointmentPage({
           <dl className="flex flex-col gap-3 text-sm">
             <Row label="שם">{details.clientName}</Row>
             <Row label="שירות">{details.serviceName}</Row>
+            {details.staffName && (
+              <Row label="איש צוות">
+                <bdi>{details.staffName}</bdi>
+              </Row>
+            )}
             <Row label="תאריך">{details.date}</Row>
             <Row label="שעה">
               <span dir="ltr">

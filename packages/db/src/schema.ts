@@ -12,6 +12,8 @@ import {
   smallint,
   index,
   uniqueIndex,
+  unique,
+  foreignKey,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -74,6 +76,31 @@ export const businesses = pgTable(
   (t) => ({
     // Product invariant: one managed business per owner account.
     uniqOwner: uniqueIndex("uq_business_owner").on(t.ownerId),
+  }),
+);
+
+// --- Team members with their own appointment calendar ---
+export const staffMembers = pgTable(
+  "staff_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    businessMemberKey: unique("staff_business_member_key").on(
+      t.businessId,
+      t.id,
+    ),
+    uniqueName: uniqueIndex("uq_staff_business_name").on(
+      t.businessId,
+      sql`lower(${t.name})`,
+    ),
   }),
 );
 
@@ -173,6 +200,8 @@ export const appointments = pgTable(
     clientId: uuid("client_id")
       .notNull()
       .references(() => clients.id),
+    // NULL is the original business calendar, including existing bookings.
+    staffMemberId: uuid("staff_member_id"),
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     status: appointmentStatus("status").notNull().default("PENDING"),
@@ -196,6 +225,16 @@ export const appointments = pgTable(
   (t) => ({
     // האינדקס החם של לוח היומן בדאשבורד
     byBusinessTime: index("idx_appt_business_time").on(t.businessId, t.startAt),
+    byCalendarTime: index("idx_appt_calendar_time").on(
+      t.businessId,
+      t.staffMemberId,
+      t.startAt,
+    ),
+    sameBusinessStaff: foreignKey({
+      name: "appointments_business_staff_fkey",
+      columns: [t.businessId, t.staffMemberId],
+      foreignColumns: [staffMembers.businessId, staffMembers.id],
+    }),
   }),
 );
 

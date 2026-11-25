@@ -15,6 +15,7 @@ const business = [
   { href: "/dashboard/business", label: "פרטי העסק" },
   { href: "/dashboard/availability", label: "שעות פעילות" },
   { href: "/dashboard/blocked", label: "חסימות ביומן" },
+  { href: "/dashboard/staff", label: "צוות" },
 ];
 
 const mobilePrimary = [calendar[0], calendar[1], business[0]];

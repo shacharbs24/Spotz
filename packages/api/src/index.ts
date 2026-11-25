@@ -8,6 +8,7 @@ import { meRouter } from "./routers/me";
 import { reviewsRouter } from "./routers/reviews";
 import { publicRouter } from "./routers/public";
 import { adminRouter } from "./routers/admin";
+import { staffRouter } from "./routers/staff";
 
 export type { Context, AuthUser } from "./trpc";
 export {
@@ -26,6 +27,7 @@ export const appRouter = router({
   })),
   businesses: businessesRouter,
   services: servicesRouter,
+  staff: staffRouter,
   availability: availabilityRouter,
   appointments: appointmentsRouter,
   blocks: blocksRouter,

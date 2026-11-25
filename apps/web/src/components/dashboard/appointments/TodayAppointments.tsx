@@ -95,6 +95,12 @@ export function TodayAppointments() {
                   <span className="min-w-0 break-words">
                     <span className="block font-semibold">
                       {upcoming.serviceName}
+                      {upcoming.staffName && (
+                        <span className="font-normal text-ink-muted">
+                          {" "}
+                          · <bdi>{upcoming.staffName}</bdi>
+                        </span>
+                      )}
                     </span>
                     <bdi className="block text-sm text-ink-muted">
                       {upcoming.clientName}

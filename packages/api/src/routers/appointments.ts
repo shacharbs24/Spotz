@@ -80,6 +80,7 @@ export const appointmentsRouter = router({
           clientName: tables.clients.fullName,
           clientPhone: tables.clients.phone,
           serviceName: tables.services.name,
+          staffName: tables.staffMembers.name,
         })
         .from(tables.appointments)
         .innerJoin(
@@ -89,6 +90,10 @@ export const appointmentsRouter = router({
         .innerJoin(
           tables.services,
           eq(tables.appointments.serviceId, tables.services.id),
+        )
+        .leftJoin(
+          tables.staffMembers,
+          eq(tables.appointments.staffMemberId, tables.staffMembers.id),
         )
         .where(
           and(
@@ -114,6 +119,7 @@ export const appointmentsRouter = router({
           clientName: row.clientName,
           clientPhone: row.clientPhone,
           serviceName: row.serviceName,
+          staffName: row.staffName,
           date: start.toLocaleString({
             weekday: "long",
             day: "numeric",
@@ -170,6 +176,7 @@ export const appointmentsRouter = router({
           clientName: tables.clients.fullName,
           clientPhone: tables.clients.phone,
           serviceName: tables.services.name,
+          staffName: tables.staffMembers.name,
         })
         .from(tables.appointments)
         .innerJoin(
@@ -179,6 +186,10 @@ export const appointmentsRouter = router({
         .innerJoin(
           tables.services,
           eq(tables.appointments.serviceId, tables.services.id),
+        )
+        .leftJoin(
+          tables.staffMembers,
+          eq(tables.appointments.staffMemberId, tables.staffMembers.id),
         )
         .where(and(...conditions))
         .orderBy(desc(tables.appointments.startAt))
@@ -201,6 +212,7 @@ export const appointmentsRouter = router({
             clientName: row.clientName,
             clientPhone: row.clientPhone,
             serviceName: row.serviceName,
+            staffName: row.staffName,
             date: start.toLocaleString({
               weekday: "long",
               day: "numeric",

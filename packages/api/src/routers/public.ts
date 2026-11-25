@@ -1,17 +1,19 @@
-import { eq, and, asc, gte, gt, lt, sql } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, publicProcedure, protectedProcedure } from "../trpc";
-import { createAppointmentSchema } from "../schemas/booking";
+import {
+  createAppointmentSchema,
+  serviceCalendarSchema,
+  slotDateSchema,
+} from "../schemas/booking";
 import { normalizeIsraeliPhone } from "../lib/phone";
-
-/** "09:00:00" / "09:00" → minutes since midnight. */
-function timeToMinutes(time: string): number {
-  const [hours, mins] = time.split(":").map(Number);
-  return hours * 60 + mins;
-}
+import {
+  loadBookingSchedule,
+  slotsForDay,
+} from "../services/booking-availability";
 
 /** Finds a PostgreSQL error code through the small wrapper chain used by ORM drivers. */
 function hasDatabaseErrorCode(error: unknown, expectedCode: string): boolean {
@@ -49,139 +51,55 @@ async function requireBusiness(businessId: string) {
   return business;
 }
 
-/**
- * Latest bookable date ("YYYY-MM-DD") in the business timezone. Auto mode rolls
- * forward `today + autoOpenDays`; manual mode hard-caps at `manualOpenUntil`
- * (never before today).
- */
-function computeMaxBookingDate(
-  business: {
-    autoOpenCalendar: boolean;
-    autoOpenDays: number;
-    manualOpenUntil: string | null;
-  },
-  timezone: string,
-): string {
-  const today = DateTime.now().setZone(timezone).startOf("day");
-  if (business.autoOpenCalendar) {
-    return today.plus({ days: business.autoOpenDays }).toFormat("yyyy-MM-dd");
-  }
-  if (!business.manualOpenUntil) return today.toFormat("yyyy-MM-dd");
-  const manual = DateTime.fromISO(business.manualOpenUntil, { zone: timezone });
-  const max = manual < today ? today : manual;
-  return max.toFormat("yyyy-MM-dd");
+function bookingWindow(business: {
+  timezone: string;
+  autoOpenCalendar: boolean;
+  autoOpenDays: number;
+  manualOpenUntil: string | null;
+}) {
+  const today = DateTime.now().setZone(business.timezone).startOf("day");
+  if (business.autoOpenCalendar)
+    return { today, lastDay: today.plus({ days: business.autoOpenDays }) };
+  const manual = DateTime.fromISO(business.manualOpenUntil ?? "", {
+    zone: business.timezone,
+  });
+  return { today, lastDay: manual.isValid && manual > today ? manual : today };
 }
 
-/**
- * Available start times for a business on a given date, respecting working
- * hours and existing (non-cancelled) appointments. Candidate starts step by the
- * service duration, and each slot blocks exactly `durationMinutes`. All
- * wall-clock math runs in the business timezone so DST is handled correctly.
- */
-async function computeAvailableSlots(
-  businessId: string,
-  timezone: string,
-  date: string,
-  durationMinutes: number,
-): Promise<string[]> {
-  const dayStart = DateTime.fromISO(date, { zone: timezone }).startOf("day");
-  if (!dayStart.isValid) return [];
-
-  // Luxon weekday: 1=Mon..7=Sun → our schema: 0=Sun..6=Sat.
-  const dayOfWeek = dayStart.weekday % 7;
-
-  const [hours] = await db
-    .select()
-    .from(tables.workingHours)
+async function findBookableService(businessId: string, serviceId: string) {
+  const [service] = await db
+    .select({
+      id: tables.services.id,
+      durationMinutes: tables.services.durationMinutes,
+      priceCents: tables.services.priceCents,
+      requiresApproval: tables.services.requiresApproval,
+    })
+    .from(tables.services)
     .where(
       and(
-        eq(tables.workingHours.businessId, businessId),
-        eq(tables.workingHours.dayOfWeek, dayOfWeek),
+        eq(tables.services.id, serviceId),
+        eq(tables.services.businessId, businessId),
+        eq(tables.services.isActive, true),
       ),
     );
+  return service;
+}
 
-  if (!hours || hours.isClosed) return [];
-
-  const startMin = timeToMinutes(hours.startTime);
-  const endMin = timeToMinutes(hours.endTime);
-
-  // Appointments and blocked periods for this day are independent of each other
-  // (both keyed only on businessId + the day window computed above), so fetch
-  // them concurrently.
-  const dayEnd = dayStart.plus({ days: 1 });
-  const [existing, blocks] = await Promise.all([
-    // Existing appointments that fall on this calendar day (business tz).
-    db
-      .select({
-        startAt: tables.appointments.startAt,
-        endAt: tables.appointments.endAt,
-        status: tables.appointments.status,
-      })
-      .from(tables.appointments)
-      .where(
-        and(
-          eq(tables.appointments.businessId, businessId),
-          gte(tables.appointments.startAt, dayStart.toJSDate()),
-          lt(tables.appointments.startAt, dayEnd.toJSDate()),
-        ),
+async function isBookableStaff(
+  businessId: string,
+  staffMemberId: string | undefined,
+) {
+  if (!staffMemberId) return true;
+  const [member] = await db
+    .select({ id: tables.staffMembers.id })
+    .from(tables.staffMembers)
+    .where(
+      and(
+        eq(tables.staffMembers.id, staffMemberId),
+        eq(tables.staffMembers.businessId, businessId),
       ),
-    // Blocked periods (vacations / manual blocks) overlapping this day.
-    db
-      .select({
-        startAt: tables.blockedPeriods.startAt,
-        endAt: tables.blockedPeriods.endAt,
-      })
-      .from(tables.blockedPeriods)
-      .where(
-        and(
-          eq(tables.blockedPeriods.businessId, businessId),
-          lt(tables.blockedPeriods.startAt, dayEnd.toJSDate()),
-          gt(tables.blockedPeriods.endAt, dayStart.toJSDate()),
-        ),
-      ),
-  ]);
-
-  // Configured intra-day breaks for this weekday (e.g. a lunch pause).
-  const breakIntervals = (hours.breaks ?? []).map((brk) => ({
-    start: dayStart.plus({ minutes: timeToMinutes(brk.start) }),
-    end: dayStart.plus({ minutes: timeToMinutes(brk.end) }),
-  }));
-
-  // Busy intervals = active appointments + blocked periods + breaks.
-  const busy = [
-    ...existing
-      .filter((appt) => appt.status !== "CANCELLED")
-      .map((appt) => ({
-        start: DateTime.fromJSDate(appt.startAt),
-        end: DateTime.fromJSDate(appt.endAt),
-      })),
-    ...blocks.map((block) => ({
-      start: DateTime.fromJSDate(block.startAt),
-      end: DateTime.fromJSDate(block.endAt),
-    })),
-    ...breakIntervals,
-  ];
-
-  const now = DateTime.now().setZone(timezone);
-  const slots: string[] = [];
-
-  for (
-    let min = startMin;
-    min + durationMinutes <= endMin;
-    min += durationMinutes
-  ) {
-    const slotStart = dayStart.plus({ minutes: min });
-    const slotEnd = slotStart.plus({ minutes: durationMinutes });
-
-    if (slotStart < now) continue; // don't offer past times
-
-    const overlaps = busy.some(
-      (interval) => slotStart < interval.end && interval.start < slotEnd,
     );
-    if (!overlaps) slots.push(slotStart.toFormat("HH:mm"));
-  }
-
-  return slots;
+  return Boolean(member);
 }
 
 /**
@@ -213,25 +131,37 @@ export const publicRouter = router({
 
       if (!business) return null;
 
-      const maxBookingDate = computeMaxBookingDate(business, business.timezone);
-
-      const services = await db
-        .select({
-          id: tables.services.id,
-          name: tables.services.name,
-          description: tables.services.description,
-          durationMinutes: tables.services.durationMinutes,
-          priceCents: tables.services.priceCents,
-          currency: tables.services.currency,
-        })
-        .from(tables.services)
-        .where(
-          and(
-            eq(tables.services.businessId, business.id),
-            eq(tables.services.isActive, true),
+      const { today, lastDay } = bookingWindow(business);
+      const [services, staffMembers] = await Promise.all([
+        db
+          .select({
+            id: tables.services.id,
+            name: tables.services.name,
+            description: tables.services.description,
+            durationMinutes: tables.services.durationMinutes,
+            priceCents: tables.services.priceCents,
+            currency: tables.services.currency,
+          })
+          .from(tables.services)
+          .where(
+            and(
+              eq(tables.services.businessId, business.id),
+              eq(tables.services.isActive, true),
+            ),
+          )
+          .orderBy(asc(tables.services.createdAt)),
+        db
+          .select({
+            id: tables.staffMembers.id,
+            name: tables.staffMembers.name,
+          })
+          .from(tables.staffMembers)
+          .where(eq(tables.staffMembers.businessId, business.id))
+          .orderBy(
+            asc(tables.staffMembers.createdAt),
+            asc(tables.staffMembers.id),
           ),
-        )
-        .orderBy(asc(tables.services.createdAt));
+      ]);
 
       const {
         autoOpenCalendar: _a,
@@ -241,46 +171,88 @@ export const publicRouter = router({
       } = business;
 
       return {
-        business: { ...publicBusiness, maxBookingDate },
+        business: {
+          ...publicBusiness,
+          minBookingDate: today.toFormat("yyyy-MM-dd"),
+          maxBookingDate: lastDay.toFormat("yyyy-MM-dd"),
+        },
         services,
+        staffMembers,
       };
     }),
 
-  /** Open start times for a service on a date ("YYYY-MM-DD"), per its duration. */
-  getAvailableSlots: publicProcedure
+  /** Days with at least one free slot in a calendar month. */
+  getAvailableDates: publicProcedure
     .input(
-      z.object({
-        businessId: z.string().uuid(),
-        serviceId: z.string().uuid(),
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      serviceCalendarSchema.extend({
+        month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
       }),
     )
     .query(async ({ input }) => {
       const business = await requireBusiness(input.businessId);
+      const [service, staffAllowed] = await Promise.all([
+        findBookableService(business.id, input.serviceId),
+        isBookableStaff(business.id, input.staffMemberId),
+      ]);
+      if (!service || !staffAllowed) return [];
 
-      const [service] = await db
-        .select({
-          businessId: tables.services.businessId,
-          durationMinutes: tables.services.durationMinutes,
-          isActive: tables.services.isActive,
-        })
-        .from(tables.services)
-        .where(eq(tables.services.id, input.serviceId));
+      const now = DateTime.now().setZone(business.timezone);
+      const month = DateTime.fromISO(input.month, {
+        zone: business.timezone,
+      }).startOf("month");
+      const { today, lastDay } = bookingWindow(business);
+      const start = DateTime.max(month, today);
+      const end = DateTime.min(
+        month.plus({ months: 1 }),
+        lastDay.plus({ days: 1 }),
+      );
+      if (!start.isValid || !end.isValid || start >= end) return [];
 
-      if (!service || service.businessId !== business.id || !service.isActive) {
-        return [];
-      }
-
-      // Outside the booking window → no slots.
-      if (input.date > computeMaxBookingDate(business, business.timezone)) {
-        return [];
-      }
-
-      return computeAvailableSlots(
+      const schedule = await loadBookingSchedule(
         business.id,
-        business.timezone,
-        input.date,
+        input.staffMemberId,
+        start,
+        end,
+      );
+      const dates: string[] = [];
+      for (let day = start; day < end; day = day.plus({ days: 1 })) {
+        if (
+          slotsForDay(day, service.durationMinutes, schedule, now).length > 0
+        ) {
+          dates.push(day.toFormat("yyyy-MM-dd"));
+        }
+      }
+      return dates;
+    }),
+
+  /** Open start times for a service on a date ("YYYY-MM-DD"), per its duration. */
+  getAvailableSlots: publicProcedure
+    .input(slotDateSchema)
+    .query(async ({ input }) => {
+      const business = await requireBusiness(input.businessId);
+      const [service, staffAllowed] = await Promise.all([
+        findBookableService(business.id, input.serviceId),
+        isBookableStaff(business.id, input.staffMemberId),
+      ]);
+      if (!service || !staffAllowed) return [];
+
+      const day = DateTime.fromISO(input.date, {
+        zone: business.timezone,
+      }).startOf("day");
+      const { today, lastDay } = bookingWindow(business);
+      if (!day.isValid || day < today || day > lastDay) return [];
+
+      const schedule = await loadBookingSchedule(
+        business.id,
+        input.staffMemberId,
+        day,
+        day.plus({ days: 1 }),
+      );
+      return slotsForDay(
+        day,
         service.durationMinutes,
+        schedule,
+        DateTime.now(),
       );
     }),
 
@@ -313,27 +285,17 @@ export const publicRouter = router({
       }
       const linkedUserId = user.id;
 
-      const [service] = await db
-        .select({
-          id: tables.services.id,
-          businessId: tables.services.businessId,
-          priceCents: tables.services.priceCents,
-          durationMinutes: tables.services.durationMinutes,
-          isActive: tables.services.isActive,
-          requiresApproval: tables.services.requiresApproval,
-        })
-        .from(tables.services)
-        .where(eq(tables.services.id, input.serviceId));
-
-      if (!service || service.businessId !== business.id || !service.isActive) {
+      const [service, staffAllowed] = await Promise.all([
+        findBookableService(business.id, input.serviceId),
+        isBookableStaff(business.id, input.staffMemberId),
+      ]);
+      if (!service) {
         throw new TRPCError({ code: "NOT_FOUND", message: "השירות לא נמצא." });
       }
-
-      // Enforce the booking window server-side.
-      if (input.date > computeMaxBookingDate(business, business.timezone)) {
+      if (!staffAllowed) {
         throw new TRPCError({
-          code: "CONFLICT",
-          message: "התאריך שנבחר מחוץ לטווח ההזמנות.",
+          code: "NOT_FOUND",
+          message: "איש הצוות לא נמצא בעסק.",
         });
       }
 
@@ -343,14 +305,28 @@ export const publicRouter = router({
       if (!startAt.isValid) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "מועד לא תקין." });
       }
+      const day = startAt.startOf("day");
+      const { today, lastDay } = bookingWindow(business);
+      if (day < today || day > lastDay) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "התאריך שנבחר מחוץ לטווח ההזמנות.",
+        });
+      }
       const endAt = startAt.plus({ minutes: service.durationMinutes });
 
       // Re-validate availability server-side (working hours + no overlap).
-      const openSlots = await computeAvailableSlots(
+      const schedule = await loadBookingSchedule(
         business.id,
-        business.timezone,
-        input.date,
+        input.staffMemberId,
+        day,
+        day.plus({ days: 1 }),
+      );
+      const openSlots = slotsForDay(
+        day,
         service.durationMinutes,
+        schedule,
+        DateTime.now(),
       );
       if (!openSlots.includes(input.time)) {
         throw new TRPCError({
@@ -388,6 +364,7 @@ export const publicRouter = router({
               businessId: business.id,
               serviceId: service.id,
               clientId: client.id,
+              staffMemberId: input.staffMemberId,
               startAt: startAt.toJSDate(),
               endAt: endAt.toJSDate(),
               // Auto-confirm unless the service requires manual owner approval.
@@ -440,6 +417,7 @@ export const publicRouter = router({
           priceCentsSnapshot: tables.appointments.priceCentsSnapshot,
           clientName: tables.clients.fullName,
           serviceName: tables.services.name,
+          staffName: tables.staffMembers.name,
           businessName: tables.businesses.name,
           timezone: tables.businesses.timezone,
         })
@@ -455,6 +433,10 @@ export const publicRouter = router({
         .innerJoin(
           tables.businesses,
           eq(tables.appointments.businessId, tables.businesses.id),
+        )
+        .leftJoin(
+          tables.staffMembers,
+          eq(tables.appointments.staffMemberId, tables.staffMembers.id),
         )
         .where(
           and(
@@ -476,6 +458,7 @@ export const publicRouter = router({
         arrivalConfirmed: row.arrivalConfirmedAt !== null,
         clientName: row.clientName,
         serviceName: row.serviceName,
+        staffName: row.staffName,
         businessName: row.businessName,
         priceCentsSnapshot: row.priceCentsSnapshot,
         date: start.toLocaleString({

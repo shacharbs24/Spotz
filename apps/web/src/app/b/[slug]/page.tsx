@@ -30,7 +30,7 @@ export default async function PublicBusinessPage({
     notFound();
   }
 
-  const { business, services } = data;
+  const { business, services, staffMembers } = data;
   // Rating summary + reviews depend only on business.id; the viewer profile
   // depends only on userId — all three are independent, so fetch in parallel.
   const [ratingSummary, reviews, profile] = await Promise.all([
@@ -111,8 +111,8 @@ export default async function PublicBusinessPage({
               </div>
             )}
             {services.length > 0 && (
-              <a href="#services-heading" className="action-primary">
-                לשירותים
+              <a href="#services" className="action-primary">
+                לקביעת תור
               </a>
             )}
             <PublicReviewButton
@@ -140,18 +140,12 @@ export default async function PublicBusinessPage({
         aria-labelledby="services-heading"
         className="mx-auto w-full max-w-4xl flex-1 scroll-mt-4 px-4 pb-10 sm:px-6 sm:pb-14"
       >
-        <h2
-          id="services-heading"
-          tabIndex={-1}
-          className="mb-4 scroll-mt-4 text-xl font-semibold tracking-tight text-ink"
-        >
-          השירותים שלנו
-        </h2>
-
         <PublicServices
           key={resumeServiceId ?? business.id}
           businessId={business.id}
           services={services}
+          staffMembers={staffMembers}
+          minBookingDate={business.minBookingDate}
           maxBookingDate={business.maxBookingDate}
           authState={authState}
           slug={slug}

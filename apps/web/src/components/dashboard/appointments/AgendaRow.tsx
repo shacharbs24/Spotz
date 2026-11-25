@@ -82,6 +82,12 @@ export function AgendaRow({
         <div className="flex flex-wrap items-center gap-2">
           <span className="min-w-0 font-semibold [overflow-wrap:anywhere] text-ink">
             {appointment.serviceName}
+            {appointment.staffName && (
+              <span className="font-normal text-ink-muted">
+                {" "}
+                · <bdi>{appointment.staffName}</bdi>
+              </span>
+            )}
           </span>
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.badge}`}

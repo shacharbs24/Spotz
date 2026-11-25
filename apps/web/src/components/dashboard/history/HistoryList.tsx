@@ -105,6 +105,12 @@ function HistoryRow({ appointment }: { appointment: AppointmentHistoryRow }) {
         </div>
         <span className="text-sm text-ink-muted">
           {appointment.serviceName}
+          {appointment.staffName && (
+            <>
+              {" "}
+              · <bdi>{appointment.staffName}</bdi>
+            </>
+          )}
         </span>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted">
           <span>{appointment.date}</span>
