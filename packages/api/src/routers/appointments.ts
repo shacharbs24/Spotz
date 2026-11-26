@@ -3,7 +3,7 @@ import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
-import { router, protectedProcedure } from "../trpc";
+import { router, approvedOwnerProcedure } from "../trpc";
 import { updateAppointmentStatusSchema } from "../schemas/appointment";
 import { canOwnerSetAppointmentStatus } from "../domain/appointment-status";
 
@@ -46,7 +46,7 @@ export const appointmentsRouter = router({
    * joined with client + service, ordered by start time ascending. Date/time are
    * formatted server-side in the business timezone so the client renders strings.
    */
-  getDashboardAppointments: protectedProcedure
+  getDashboardAppointments: approvedOwnerProcedure
     .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
     .query(async ({ ctx, input }) => {
       const [user] = await db
@@ -142,7 +142,7 @@ export const appointmentsRouter = router({
    * newest first, paginated via an offset cursor. An optional `searchQuery`
    * filters by client name (case-insensitive substring).
    */
-  getAppointmentHistory: protectedProcedure
+  getAppointmentHistory: approvedOwnerProcedure
     .input(
       z.object({
         searchQuery: z.string().trim().max(100).optional(),
@@ -227,7 +227,7 @@ export const appointmentsRouter = router({
     }),
 
   /** Changes an appointment's status (owner of the appointment's business only). */
-  updateAppointmentStatus: protectedProcedure
+  updateAppointmentStatus: approvedOwnerProcedure
     .input(updateAppointmentStatusSchema)
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);

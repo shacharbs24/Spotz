@@ -45,10 +45,24 @@ export const users = pgTable("users", {
   fullName: text("full_name"),
   phone: text("phone"),
   role: userRole("role").notNull().default("CLIENT"),
+  ownerAccessGranted: boolean("owner_access_granted").notNull().default(false),
+  ownerApprovedAt: timestamp("owner_approved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
+
+// --- Contact shown to owners who are awaiting platform approval ---
+export const ownerApprovalSettings = pgTable(
+  "owner_approval_settings",
+  {
+    id: smallint("id").primaryKey().default(1),
+    contactPhone: text("contact_phone").notNull(),
+  },
+  (t) => ({
+    singleton: check("owner_approval_settings_singleton", sql`${t.id} = 1`),
+  }),
+);
 
 // --- Businesses ---
 export const businesses = pgTable(

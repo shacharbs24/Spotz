@@ -10,6 +10,7 @@ const userColumns = {
   role: tables.users.role,
   fullName: tables.users.fullName,
   phone: tables.users.phone,
+  ownerAccessGranted: tables.users.ownerAccessGranted,
 } as const;
 
 /**

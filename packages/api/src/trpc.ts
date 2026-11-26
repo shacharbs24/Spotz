@@ -6,6 +6,7 @@ export interface AuthUser {
   role: "OWNER" | "CLIENT";
   fullName: string | null;
   phone: string | null;
+  ownerAccessGranted: boolean;
 }
 
 /**
@@ -30,6 +31,24 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   }
   return next({ ctx: { clerkUserId: ctx.clerkUserId, user: ctx.user } });
 });
+
+export const approvedOwnerProcedure = protectedProcedure.use(
+  ({ ctx, next }) => {
+    if (ctx.user?.role !== "OWNER") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "הכניסה מיועדת לבעלי עסקים.",
+      });
+    }
+    if (!ctx.user.ownerAccessGranted) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "החשבון ממתין לאישור מנהל.",
+      });
+    }
+    return next({ ctx: { user: ctx.user } });
+  },
+);
 
 /**
  * Clerk user IDs granted platform-admin access (comma-separated env var).

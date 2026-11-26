@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
-import { router, protectedProcedure } from "../trpc";
+import { router, approvedOwnerProcedure } from "../trpc";
 import { businessInputSchema } from "../schemas/business";
 import { deleteManagedBlob } from "../lib/blob";
 
@@ -23,7 +23,7 @@ async function requireUser(clerkUserId: string) {
 
 export const businessesRouter = router({
   /** The business owned by the current user, or `null` if none yet. */
-  getMyBusiness: protectedProcedure.query(async ({ ctx }) => {
+  getMyBusiness: approvedOwnerProcedure.query(async ({ ctx }) => {
     // ctx.user is loaded once per request in createClerkContext — no re-query.
     const user = ctx.user;
     if (!user) return null;
@@ -37,7 +37,7 @@ export const businessesRouter = router({
   }),
 
   /** Create or update the current owner's business. */
-  upsertBusiness: protectedProcedure
+  upsertBusiness: approvedOwnerProcedure
     .input(businessInputSchema)
     .mutation(async ({ ctx, input }) => {
       const user = await requireUser(ctx.clerkUserId);

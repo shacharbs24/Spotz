@@ -3,7 +3,7 @@ import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
-import { router, protectedProcedure } from "../trpc";
+import { router, approvedOwnerProcedure } from "../trpc";
 import { createBlockedPeriodSchema } from "../schemas/block";
 import { staffAtBusiness } from "../services/staff-calendars";
 
@@ -111,7 +111,7 @@ function describeBlock(
 
 export const blocksRouter = router({
   /** Upcoming/ongoing blocks for the owner's business, ordered by start. */
-  getBlockedPeriods: protectedProcedure
+  getBlockedPeriods: approvedOwnerProcedure
     .input(staffScope.optional())
     .query(async ({ ctx, input }) => {
       const [user] = await db
@@ -149,7 +149,7 @@ export const blocksRouter = router({
       }));
     }),
 
-  createBlockedPeriod: protectedProcedure
+  createBlockedPeriod: approvedOwnerProcedure
     .input(createBlockedPeriodSchema.and(staffScope))
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);
@@ -194,7 +194,7 @@ export const blocksRouter = router({
       });
     }),
 
-  deleteBlockedPeriod: protectedProcedure
+  deleteBlockedPeriod: approvedOwnerProcedure
     .input(staffScope.extend({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);

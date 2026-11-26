@@ -2,7 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { db, tables } from "@spotz/db";
-import { protectedProcedure, router, type AuthUser } from "../trpc";
+import { approvedOwnerProcedure, router, type AuthUser } from "../trpc";
 import { getBookingOwnerName } from "../lib/booking-owner-name";
 import { hasDatabaseErrorCode } from "../lib/database-errors";
 import {
@@ -73,7 +73,7 @@ async function requireOwnedBusiness(user: AuthUser | null) {
 }
 
 export const staffRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: approvedOwnerProcedure.query(async ({ ctx }) => {
     const business = await getOwnedBusiness(ctx.user);
     if (!business) {
       return {
@@ -95,7 +95,7 @@ export const staffRouter = router({
     };
   }),
 
-  getSettings: protectedProcedure
+  getSettings: approvedOwnerProcedure
     .input(memberInput)
     .query(async ({ ctx, input }) => {
       const business = await requireOwnedBusiness(ctx.user);
@@ -143,7 +143,7 @@ export const staffRouter = router({
       return { ...member, businessWeek, activeServices };
     }),
 
-  setWeeklyHours: protectedProcedure
+  setWeeklyHours: approvedOwnerProcedure
     .input(memberInput.extend({ days: weeklyHoursInput.nullable() }))
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnedBusiness(ctx.user);
@@ -156,7 +156,7 @@ export const staffRouter = router({
       return { days: input.days };
     }),
 
-  setServices: protectedProcedure
+  setServices: approvedOwnerProcedure
     .input(
       memberInput.extend({ serviceIds: z.array(z.string().uuid()).nullable() }),
     )
@@ -214,7 +214,7 @@ export const staffRouter = router({
       return { serviceIds };
     }),
 
-  create: protectedProcedure
+  create: approvedOwnerProcedure
     .input(z.object({ name: nameSchema }))
     .mutation(async ({ ctx, input }) => {
       const business = await getOwnedBusiness(ctx.user);
@@ -234,7 +234,7 @@ export const staffRouter = router({
       return member;
     }),
 
-  rename: protectedProcedure
+  rename: approvedOwnerProcedure
     .input(
       z.object({ memberId: z.string().uuid().nullable(), name: nameSchema }),
     )

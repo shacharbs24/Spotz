@@ -38,6 +38,9 @@ export async function POST(request: Request): Promise<Response> {
         if (!user || user.role !== "OWNER") {
           throw new Error("רק בעלי עסק יכולים להעלות תמונות.");
         }
+        if (!user.ownerAccessGranted) {
+          throw new Error("החשבון ממתין לאישור מנהל.");
+        }
 
         // The single business this owner owns (or none yet, when creating).
         const [owned] = await db

@@ -2,7 +2,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
-import { router, protectedProcedure } from "../trpc";
+import { router, approvedOwnerProcedure } from "../trpc";
 import { serviceInputSchema } from "../schemas/service";
 
 /**
@@ -57,7 +57,7 @@ const serviceIdSchema = z.object({ id: z.string().uuid() });
 
 export const servicesRouter = router({
   /** All services for the current owner's business (empty if none / not owner). */
-  getServices: protectedProcedure.query(async ({ ctx }) => {
+  getServices: approvedOwnerProcedure.query(async ({ ctx }) => {
     const [user] = await db
       .select()
       .from(tables.users)
@@ -84,7 +84,7 @@ export const servicesRouter = router({
       .orderBy(asc(tables.services.createdAt));
   }),
 
-  createService: protectedProcedure
+  createService: approvedOwnerProcedure
     .input(serviceInputSchema)
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);
@@ -103,7 +103,7 @@ export const servicesRouter = router({
       return created;
     }),
 
-  updateService: protectedProcedure
+  updateService: approvedOwnerProcedure
     .input(serviceInputSchema.extend({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);
@@ -123,7 +123,7 @@ export const servicesRouter = router({
       return updated;
     }),
 
-  deleteService: protectedProcedure
+  deleteService: approvedOwnerProcedure
     .input(serviceIdSchema)
     .mutation(async ({ ctx, input }) => {
       const business = await requireOwnerBusiness(ctx.clerkUserId);

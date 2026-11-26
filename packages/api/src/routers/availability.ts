@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
-import { router, protectedProcedure } from "../trpc";
+import { router, approvedOwnerProcedure } from "../trpc";
 import {
   updateAvailabilitySchema,
   type AvailabilityDay,
@@ -27,7 +27,7 @@ export const availabilityRouter = router({
    * default week when the user has no business or hasn't set hours yet, so the
    * UI always has values to render.
    */
-  getOurAvailability: protectedProcedure.query(async ({ ctx }) => {
+  getOurAvailability: approvedOwnerProcedure.query(async ({ ctx }) => {
     const [user] = await db
       .select()
       .from(tables.users)
@@ -65,7 +65,7 @@ export const availabilityRouter = router({
   }),
 
   /** Replace the owner's weekly schedule with the provided days. */
-  updateAvailability: protectedProcedure
+  updateAvailability: approvedOwnerProcedure
     .input(updateAvailabilitySchema)
     .mutation(async ({ ctx, input }) => {
       const [user] = await db

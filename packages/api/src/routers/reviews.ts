@@ -3,7 +3,12 @@ import { z } from "zod";
 import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
-import { router, publicProcedure, protectedProcedure } from "../trpc";
+import {
+  router,
+  publicProcedure,
+  protectedProcedure,
+  approvedOwnerProcedure,
+} from "../trpc";
 import {
   createReviewSchema,
   createBusinessReviewSchema,
@@ -188,7 +193,7 @@ export const reviewsRouter = router({
     }),
 
   /** Owner-only: hide/show one of their business's reviews. */
-  updateReviewVisibility: protectedProcedure
+  updateReviewVisibility: approvedOwnerProcedure
     .input(updateReviewVisibilitySchema)
     .mutation(async ({ ctx, input }) => {
       const [user] = await db

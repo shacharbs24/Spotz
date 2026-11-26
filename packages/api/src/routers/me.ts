@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { TRPCError } from "@trpc/server";
 import { db, tables } from "@spotz/db";
 import { router, protectedProcedure } from "../trpc";
+import { getOwnerApprovalContactPhone } from "../services/owner-approval";
 import { updateProfileSchema } from "../schemas/profile";
 
 const PAST_PAGE_SIZE = 10;
@@ -33,8 +34,23 @@ export const meRouter = router({
   getProfile: protectedProcedure.query(({ ctx }) => {
     const user = ctx.user;
     return user
-      ? { role: user.role, fullName: user.fullName, phone: user.phone }
-      : { role: "CLIENT" as const, fullName: null, phone: null };
+      ? {
+          role: user.role,
+          fullName: user.fullName,
+          phone: user.phone,
+          ownerAccessGranted: user.ownerAccessGranted,
+        }
+      : {
+          role: "CLIENT" as const,
+          fullName: null,
+          phone: null,
+          ownerAccessGranted: false,
+        };
+  }),
+
+  getOwnerApprovalContact: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user?.role !== "OWNER" || ctx.user.ownerAccessGranted) return null;
+    return getOwnerApprovalContactPhone();
   }),
 
   /** Save onboarding details (name + phone) to the signed-in user's profile. */

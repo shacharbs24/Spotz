@@ -17,11 +17,9 @@ export default async function Home() {
     const profile = await caller.me.getProfile();
     role = profile.role;
     fullName = profile.fullName;
-  }
-
-  // Owners skip the landing entirely — straight to their active dashboard.
-  if (userId && role === "OWNER") {
-    redirect("/dashboard");
+    if (role === "OWNER") {
+      redirect(profile.ownerAccessGranted ? "/dashboard" : "/owner-approval");
+    }
   }
 
   const isClient = role === "CLIENT";

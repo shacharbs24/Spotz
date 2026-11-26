@@ -1,27 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { TodayAppointments } from "@/components/dashboard/appointments/TodayAppointments";
 import { CopyLinkButton } from "@/components/dashboard/CopyLinkButton";
 import { DashboardHeading } from "@/components/dashboard/DashboardHeading";
-import { getServerCaller } from "@/trpc/server";
+import { requireDashboardOwner } from "@/trpc/server";
 
 export default async function DashboardPage() {
-  const [{ userId }, caller] = await Promise.all([auth(), getServerCaller()]);
-  if (!userId) {
-    redirect("/");
-  }
-
-  // Owner-only route — clients are sent back to their home portal. The profile
-  // (role gate) and the business load are independent, so fetch them together;
-  // getMyBusiness returns null for a non-owner, so the eager fetch is harmless.
-  const [{ role }, business] = await Promise.all([
-    caller.me.getProfile(),
-    caller.businesses.getMyBusiness(),
-  ]);
-  if (role !== "OWNER") {
-    redirect("/");
-  }
+  const caller = await requireDashboardOwner();
+  const business = await caller.businesses.getMyBusiness();
 
   return (
     <>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { TRPCError } from "@trpc/server";
 import { getServerCaller } from "@/trpc/server";
+import { OwnerApprovals } from "@/components/admin/OwnerApprovals";
 
 /** Appointment status → Hebrew label + badge classes (matches the dashboard). */
 const STATUS_META: Record<
@@ -64,6 +65,8 @@ export default async function AdminPage() {
         </h1>
         <p className="text-ink-muted">נתונים כלל-מערכתיים על העסקים והתורים.</p>
       </header>
+
+      <OwnerApprovals />
 
       {/* Summary cards */}
       <section className="grid gap-4 sm:grid-cols-3">
